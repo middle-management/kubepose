@@ -1,0 +1,12 @@
+services:
+  web:
+    image: scratch
+    command: "$$VAR_NOT_INTERPOLATED_BY_COMPOSE"
+  foo:
+    image: scratch
+    labels:
+      "$VAR_NOT_INTERPOLATED_BY_COMPOSE": "BAR"
+  bar:
+    image: scratch
+    labels:
+      - "$VAR_INTERPOLATED_BY_COMPOSE=BAR"

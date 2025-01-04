@@ -9,6 +9,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -66,11 +67,78 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				IsConfigMap:   true,
 			}
 		} else {
+			// TODO support HostPath, EmptyDir, TempDir
+
 			// Handle regular volumes
 			volumeMappings[name] = VolumeMapping{
 				Name:        name,
 				IsConfigMap: false,
 			}
+			// Create PersistentVolume
+			pv := &corev1.PersistentVolume{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "PersistentVolume",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+					Labels: map[string]string{
+						"generated-from":           "composek8s",
+						"composek8s.original-name": name,
+					},
+				},
+				Spec: corev1.PersistentVolumeSpec{
+					// TODO get from label "composek8s.volume.storage_class_name"?
+					StorageClassName: "standard",
+					Capacity: corev1.ResourceList{
+						// TODO get from label "composek8s.volume.capacity"?
+						corev1.ResourceStorage: resource.MustParse("10Gi"),
+					},
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					PersistentVolumeSource: corev1.PersistentVolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: volume.Name,
+						},
+					},
+				},
+			}
+			for k, v := range volume.Labels {
+				pv.Labels[k] = v
+			}
+			resources.PersistentVolumes = append(resources.PersistentVolumes, pv)
+
+			// Create PersistentVolumeClaim
+			pvc := &corev1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "PersistentVolumeClaim",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+					Labels: map[string]string{
+						"generated-from":           "composek8s",
+						"composek8s.original-name": name,
+					},
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					StorageClassName: &pv.Spec.StorageClassName,
+					AccessModes: []corev1.PersistentVolumeAccessMode{
+						corev1.ReadWriteOnce,
+					},
+					Resources: corev1.VolumeResourceRequirements{
+						Requests: corev1.ResourceList{
+							// TODO get from label "composek8s.volume.requests"?
+							corev1.ResourceStorage: resource.MustParse("10Gi"),
+						},
+					},
+				},
+			}
+			for k, v := range volume.Labels {
+				pvc.Labels[k] = v
+			}
+			resources.PersistentVolumeClaims = append(resources.PersistentVolumeClaims, pvc)
 		}
 	}
 

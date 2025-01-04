@@ -65,8 +65,10 @@ func (r *Resources) Write(writer io.Writer) error {
 	}
 
 	// Join all resources with yaml separator
-	output := strings.Join(allResources, "\n---\n")
+	_, err := writer.Write([]byte(strings.Join(allResources, "\n---\n")))
+	if err != nil {
+		return fmt.Errorf("error writing resources: %w", err)
+	}
 
-	_, err := writer.Write([]byte(output))
-	return err
+	return nil
 }

@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    def: BAR
+  name: bar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bar
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: bar
+    spec:
+      containers:
+      - image: scratch
+        name: bar
+        resources: {}
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    $VAR_NOT_INTERPOLATED_BY_COMPOSE: BAR
+  name: foo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foo
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: foo
+    spec:
+      containers:
+      - image: scratch
+        name: foo
+        resources: {}
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: web
+    spec:
+      containers:
+      - args:
+        - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
+        image: scratch
+        name: web
+        resources: {}
+status: {}

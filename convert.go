@@ -2,6 +2,7 @@ package composek8s
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,7 @@ func Convert(project *types.Project) (*Resources, error) {
 	// Convert each service to Kubernetes resources
 	for _, service := range project.Services {
 		// Create Deployment
+		// TODO DaemonSet, StatefulSet, CronJob
 		deployment := createDeployment(service)
 
 		// Update deployment with secrets if any
@@ -44,6 +46,7 @@ func Convert(project *types.Project) (*Resources, error) {
 
 		// Create Service if ports are defined
 		if len(service.Ports) > 0 {
+			// TODO Ingress
 			k8sService := createService(service)
 			resources.Services = append(resources.Services, k8sService)
 		}
@@ -57,14 +60,16 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 	if service.Deploy != nil && service.Deploy.Replicas != nil {
 		replicas = int32(*service.Deploy.Replicas)
 	}
-
+	// TODO LivenessProbe, ReadinessProbe, ImagePullSecrets, ResourcesLimits, ResourcesRequests, SecurityContext, RestartPolicy
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: service.Name,
+			Name:        service.Name,
+			Annotations: service.Annotations,
+			Labels:      service.Labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
@@ -75,17 +80,21 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
+					Annotations: service.Annotations,
 					Labels: map[string]string{
 						"app": service.Name,
+						// TODO service.Labels...
 					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  service.Name,
-							Image: service.Image,
-							Ports: convertPorts(service.Ports),
-							Env:   convertEnvironment(service.Environment),
+							Name:    service.Name,
+							Image:   service.Image,
+							Command: service.Entrypoint,
+							Args:    escapeEnvs(service.Command),
+							Ports:   convertPorts(service.Ports),
+							Env:     convertEnvironment(service.Environment),
 						},
 					},
 				},
@@ -94,14 +103,27 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 	}
 }
 
+var reEnvVars = regexp.MustCompile(`\$([a-zA-Z0-9.-_]+)`)
+
+func escapeEnvs(input []string) []string {
+	var args []string
+	for _, arg := range input {
+		args = append(args, reEnvVars.ReplaceAllString(arg, `$($1)`))
+	}
+	return args
+}
+
 func createService(service types.ServiceConfig) *corev1.Service {
+	// TODO support LoadBalancer, NodePort, ExternalName, ClusterIP
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: service.Name,
+			Name:        service.Name,
+			Annotations: service.Annotations,
+			Labels:      service.Labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{

@@ -43,7 +43,12 @@ spec:
         app: redis-replica
     spec:
       containers:
-      - image: redis
+      - args:
+        - redis-server
+        - --replicaof
+        - redis-leader
+        - "6379"
+        image: redis
         name: redis-replica
         ports:
         - containerPort: 6379
