@@ -8,70 +8,58 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
 )
 
 type Resources struct {
-	Deployments []*appsv1.Deployment
-	Services    []*corev1.Service
-	Secrets     []*corev1.Secret
-	ConfigMaps  []*corev1.ConfigMap
-	// Add other resource types as needed:
-	// ConfigMaps     []corev1.ConfigMap
-	// StatefulSets  []appsv1.StatefulSet
-	// Ingresses     []networkingv1.Ingress
-	// etc.
+	Deployments            []*appsv1.Deployment
+	Services               []*corev1.Service
+	Secrets                []*corev1.Secret
+	ConfigMaps             []*corev1.ConfigMap
+	PersistentVolumes      []*corev1.PersistentVolume
+	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
+}
+
+type k8sObject interface {
+	runtime.Object
+	metav1.Object
+}
+
+func toObjects[T k8sObject](items []T) []k8sObject {
+	result := make([]k8sObject, len(items))
+	for i, item := range items {
+		result[i] = item
+	}
+	return result
 }
 
 func (r *Resources) Write(writer io.Writer) error {
+	var items []k8sObject
+	items = append(items, toObjects(r.ConfigMaps)...)
+	items = append(items, toObjects(r.Secrets)...)
+	items = append(items, toObjects(r.Deployments)...)
+	items = append(items, toObjects(r.Services)...)
+	items = append(items, toObjects(r.PersistentVolumes)...)
+	items = append(items, toObjects(r.PersistentVolumeClaims)...)
+
+	sort.Slice(items, func(i, j int) bool {
+		ki := items[i].GetObjectKind().GroupVersionKind().Kind
+		kj := items[j].GetObjectKind().GroupVersionKind().Kind
+		if ki != kj {
+			return ki < kj
+		}
+		ni := items[i].GetName()
+		nj := items[j].GetName()
+		return ni < nj
+	})
+
 	var allResources []string
-
-	// Sort resources to ensure consistent output
-	sort.Slice(r.ConfigMaps, func(i, j int) bool {
-		return r.ConfigMaps[i].Name < r.ConfigMaps[j].Name
-	})
-	sort.Slice(r.Secrets, func(i, j int) bool {
-		return r.Secrets[i].Name < r.Secrets[j].Name
-	})
-	sort.Slice(r.Deployments, func(i, j int) bool {
-		return r.Deployments[i].Name < r.Deployments[j].Name
-	})
-	sort.Slice(r.Services, func(i, j int) bool {
-		return r.Services[i].Name < r.Services[j].Name
-	})
-
-	// Marshal ConfigMaps
-	for _, configMap := range r.ConfigMaps {
-		yamlData, err := yaml.Marshal(configMap)
+	for _, item := range items {
+		yamlData, err := yaml.Marshal(item)
 		if err != nil {
-			return fmt.Errorf("error marshaling configmap: %w", err)
-		}
-		allResources = append(allResources, string(yamlData))
-	}
-
-	// Marshal secrets
-	for _, secret := range r.Secrets {
-		yamlData, err := yaml.Marshal(secret)
-		if err != nil {
-			return fmt.Errorf("error marshaling secret: %w", err)
-		}
-		allResources = append(allResources, string(yamlData))
-	}
-
-	// Marshal deployments
-	for _, deployment := range r.Deployments {
-		yamlData, err := yaml.Marshal(deployment)
-		if err != nil {
-			return fmt.Errorf("error marshaling deployment: %w", err)
-		}
-		allResources = append(allResources, string(yamlData))
-	}
-
-	// Marshal services
-	for _, service := range r.Services {
-		yamlData, err := yaml.Marshal(service)
-		if err != nil {
-			return fmt.Errorf("error marshaling service: %w", err)
+			return fmt.Errorf("error marshaling item: %w", err)
 		}
 		allResources = append(allResources, string(yamlData))
 	}

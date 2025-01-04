@@ -45,12 +45,16 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				ObjectMeta: metav1.ObjectMeta{
 					Name: configMapName,
 					Labels: map[string]string{
-						"generated-from": "compose",
+						"generated-from":           "composek8s",
+						"composek8s.original-name": name,
 					},
 				},
 				Data: map[string]string{
 					filepath.Base(volume.Name): string(content),
 				},
+			}
+			for k, v := range volume.Labels {
+				configMap.Labels[k] = v
 			}
 
 			resources.ConfigMaps = append(resources.ConfigMaps, configMap)
