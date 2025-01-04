@@ -39,7 +39,7 @@ func Convert(project *types.Project) (*Resources, error) {
 		updateDeploymentWithSecrets(deployment, service, secretMapping)
 
 		// Update deployment with volumes
-		updateDeploymentWithVolumes(deployment, service, volumeMappings)
+		updateDeploymentWithVolumes(deployment, service, volumeMappings, resources, project)
 
 		// Add deployment to resources
 		resources.Deployments = append(resources.Deployments, deployment)

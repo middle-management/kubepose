@@ -1,3 +1,18 @@
+apiVersion: v1
+data:
+  init.sql: |
+    CREATE TABLE IF NOT EXISTS test (id serial);
+immutable: true
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    composek8s.volume.hmac-key: composek8s.volumes.v1
+    composek8s.volume.source: init.sql
+    generated-from: composek8s
+  name: postgres-configmap-cc0d97a0
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,25 +41,6 @@ status: {}
 
 ---
 apiVersion: v1
-kind: PersistentVolume
-metadata:
-  creationTimestamp: null
-  labels:
-    composek8s.original-name: postgres-data
-    generated-from: composek8s
-  name: postgres-data
-spec:
-  accessModes:
-  - ReadWriteOnce
-  capacity:
-    storage: 10Gi
-  hostPath:
-    path: volumes_postgres-data
-  storageClassName: standard
-status: {}
-
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   creationTimestamp: null
@@ -58,7 +54,6 @@ spec:
   resources:
     requests:
       storage: 10Gi
-  storageClassName: standard
 status: {}
 
 ---

@@ -18,7 +18,6 @@ type Resources struct {
 	Services               []*corev1.Service
 	Secrets                []*corev1.Secret
 	ConfigMaps             []*corev1.ConfigMap
-	PersistentVolumes      []*corev1.PersistentVolume
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
 }
 
@@ -41,7 +40,6 @@ func (r *Resources) Write(writer io.Writer) error {
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.Deployments)...)
 	items = append(items, toObjects(r.Services)...)
-	items = append(items, toObjects(r.PersistentVolumes)...)
 	items = append(items, toObjects(r.PersistentVolumeClaims)...)
 
 	sort.Slice(items, func(i, j int) bool {

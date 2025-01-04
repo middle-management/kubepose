@@ -1,6 +1,7 @@
 package composek8s
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -12,10 +13,14 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 )
 
 // processSecrets converts Compose secrets to Kubernetes secrets and returns a map of
 // original secret names to their corresponding K8s secret names (with content hash)
+
+// using a hmac key to be able to invalidate if we modify how an immutable secret is shaped
+const secretsHmacKey = "composek8s.secrets.v1"
 
 func processSecrets(project *types.Project, resources *Resources) (map[string]string, error) {
 	secretMapping := make(map[string]string)
@@ -27,16 +32,16 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]st
 			continue
 		}
 
-		content, err := readSecretFile(secret.File)
+		content, hash, err := readFileWithShortHash(secret.File, secretsHmacKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read secret file %s: %w", secret.File, err)
 		}
 
-		hash := generateHash(content)
-		k8sSecretName := fmt.Sprintf("%s-%s", name, hash[:8])
+		k8sSecretName := fmt.Sprintf("%s-%s", name, hash)
 		secretMapping[name] = k8sSecretName
 
 		k8sSecret := corev1.Secret{
+			Immutable: pointer.Bool(true),
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
 				Kind:       "Secret",
@@ -44,8 +49,9 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]st
 			ObjectMeta: metav1.ObjectMeta{
 				Name: k8sSecretName,
 				Labels: map[string]string{
-					"generated-from":           "composek8s",
-					"composek8s.original-name": name,
+					"generated-from":             "composek8s",
+					"composek8s.original-name":   name,
+					"composek8s.secret.hmac-key": secretsHmacKey,
 				},
 			},
 			// TODO type from label composek8s.secret-type or default to Opaque
@@ -64,27 +70,21 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]st
 	return secretMapping, nil
 }
 
-// readSecretFile reads the content of a secret file
-func readSecretFile(path string) ([]byte, error) {
+// readFileWithShortHash reads the content of a secret file and its hash
+func readFileWithShortHash(path string, hmacKey string) ([]byte, string, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer file.Close()
 
-	content, err := io.ReadAll(file)
+	hasher := hmac.New(sha256.New, []byte(hmacKey))
+	content, err := io.ReadAll(io.TeeReader(file, hasher))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	return content, nil
-}
-
-// generateHash creates a SHA256 hash of the content
-func generateHash(content []byte) string {
-	hasher := sha256.New()
-	hasher.Write(content)
-	return hex.EncodeToString(hasher.Sum(nil))
+	return content, hex.EncodeToString(hasher.Sum(nil))[0:8], nil
 }
 
 // updateDeploymentWithSecrets updates a deployment with secret volumes and mounts
