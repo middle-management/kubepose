@@ -3,6 +3,7 @@ package composek8s
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -24,6 +25,20 @@ type Resources struct {
 
 func (r *Resources) Write(writer io.Writer) error {
 	var allResources []string
+
+	// Sort resources to ensure consistent output
+	sort.Slice(r.ConfigMaps, func(i, j int) bool {
+		return r.ConfigMaps[i].Name < r.ConfigMaps[j].Name
+	})
+	sort.Slice(r.Secrets, func(i, j int) bool {
+		return r.Secrets[i].Name < r.Secrets[j].Name
+	})
+	sort.Slice(r.Deployments, func(i, j int) bool {
+		return r.Deployments[i].Name < r.Deployments[j].Name
+	})
+	sort.Slice(r.Services, func(i, j int) bool {
+		return r.Services[i].Name < r.Services[j].Name
+	})
 
 	// Marshal ConfigMaps
 	for _, configMap := range r.ConfigMaps {

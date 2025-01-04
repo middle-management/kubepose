@@ -15,6 +15,7 @@ func TestConvert(t *testing.T) {
 		ComposeFiles []string
 	}{
 		{ComposeFiles: []string{"testdata/secrets/compose.yaml"}},
+		{ComposeFiles: []string{"testdata/simple/compose.yaml"}},
 	}
 	for _, tt := range tests {
 		tt := tt
