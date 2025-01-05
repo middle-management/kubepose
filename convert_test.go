@@ -1,12 +1,13 @@
-package main_test
+package kubepose_test
 
 import (
 	"bytes"
 	"os/exec"
+
 	"testing"
 
 	"github.com/slaskis/kubepose"
-	main "github.com/slaskis/kubepose/cmd/kubepose"
+	"github.com/slaskis/kubepose/internal/project"
 	"github.com/slaskis/kubepose/internal/test"
 )
 
@@ -15,27 +16,27 @@ func TestConvert(t *testing.T) {
 		Name   string
 		Env    map[string]string
 		DryRun bool
-		main.Options
+		project.Options
 	}{
-		{Name: "secrets/k8s.yaml", Options: main.Options{
+		{Name: "secrets/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/secrets/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"ACE_IDENTITY": "abc",
 		}, DryRun: true},
-		{Name: "simple/k8s.yaml", Options: main.Options{
+		{Name: "simple/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/simple/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: true},
-		{Name: "volumes/k8s.yaml", Options: main.Options{
+		{Name: "volumes/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/volumes/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: true},
-		{Name: "expose/k8s.yaml", Options: main.Options{
+		{Name: "expose/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/expose/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: true},
-		{Name: "interpolation/k8s.yaml", Options: main.Options{
+		{Name: "interpolation/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/interpolation/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
@@ -55,7 +56,7 @@ func TestConvert(t *testing.T) {
 				t.Parallel()
 			}
 
-			project, err := main.NewProject(tt.Options)
+			project, err := project.New(tt.Options)
 			if err != nil {
 				t.Fatal(err)
 			}
