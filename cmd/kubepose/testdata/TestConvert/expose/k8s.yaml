@@ -1,28 +1,29 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    kompose.service.expose: web.k8s.orb.local
   creationTimestamp: null
-  labels:
-    kompose.service.expose: "true"
   name: web
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web
+      kubepose.service: web
   strategy: {}
   template:
     metadata:
+      annotations:
+        kompose.service.expose: web.k8s.orb.local
       creationTimestamp: null
       labels:
-        app: web
-        kompose.service.expose: "true"
+        kubepose.service: web
     spec:
       containers:
       - image: nginx
         name: web
         ports:
-        - containerPort: 8080
+        - containerPort: 80
           protocol: TCP
         resources: {}
       restartPolicy: Always
@@ -32,13 +33,13 @@ status: {}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
+  annotations:
+    kompose.service.expose: web.k8s.orb.local
   creationTimestamp: null
-  labels:
-    kompose.service.expose: "true"
   name: web
 spec:
   rules:
-  - host: web.local
+  - host: web.k8s.orb.local
     http:
       paths:
       - backend:
@@ -55,16 +56,16 @@ status:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    kompose.service.expose: web.k8s.orb.local
   creationTimestamp: null
-  labels:
-    kompose.service.expose: "true"
   name: web
 spec:
   ports:
   - port: 8080
     protocol: TCP
-    targetPort: 8080
+    targetPort: 80
   selector:
-    app: web
+    kubepose.service: web
 status:
   loadBalancer: {}

@@ -1,7 +1,7 @@
 services:
   web:
     image: nginx
-    labels:
-      kompose.service.expose: true
+    annotations:
+      kompose.service.expose: web.k8s.orb.local
     ports:
-      - "8080:8080"
+      - "8080:80"

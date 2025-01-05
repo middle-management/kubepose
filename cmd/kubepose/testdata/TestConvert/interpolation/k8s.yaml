@@ -9,14 +9,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: bar
+      kubepose.service: bar
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: bar
         def: BAR
+        kubepose.service: bar
     spec:
       containers:
       - image: scratch
@@ -40,17 +40,17 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: foo
+      kubepose.service: foo
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: foo
         foo1: def
         foo2: def
         foo3: default
         foo4: def
+        kubepose.service: foo
     spec:
       containers:
       - image: scratch
@@ -69,13 +69,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web
+      kubepose.service: web
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: web
+        kubepose.service: web
     spec:
       containers:
       - args:

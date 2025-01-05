@@ -49,10 +49,9 @@ func Convert(project *types.Project) (*Resources, error) {
 
 		// Create Service if ports are defined
 		if len(service.Ports) > 0 {
-			// TODO Ingress
 			k8sService := createService(service)
 			resources.Services = append(resources.Services, k8sService)
-			if _, ok := service.Labels["kompose.service.expose"]; ok {
+			if _, ok := service.Annotations["kompose.service.expose"]; ok {
 				resources.Ingresses = append(resources.Ingresses, createIngress(service))
 			}
 		}
@@ -71,7 +70,7 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 	for k, v := range service.Labels {
 		podLabels[k] = v
 	}
-	podLabels["app"] = service.Name
+	podLabels[ServiceSelectorLabelKey] = service.Name
 
 	restartPolicy := corev1.RestartPolicyAlways
 	if service.Deploy != nil && service.Deploy.RestartPolicy != nil {
@@ -96,7 +95,7 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": service.Name,
+					ServiceSelectorLabelKey: service.Name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -133,6 +132,8 @@ func escapeEnvs(input []string) []string {
 	return args
 }
 
+const ServiceSelectorLabelKey = "kubepose.service"
+
 func createService(service types.ServiceConfig) *corev1.Service {
 	// TODO support LoadBalancer, NodePort, ExternalName, ClusterIP
 	return &corev1.Service{
@@ -147,7 +148,7 @@ func createService(service types.ServiceConfig) *corev1.Service {
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": service.Name,
+				ServiceSelectorLabelKey: service.Name,
 			},
 			Ports: convertServicePorts(service.Ports),
 		},
@@ -241,8 +242,8 @@ func createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 	}
 
 	// Get host from labels or annotations
-	host := service.Name + ".local" // Default host
-	if h, ok := service.Labels["kompose.service.expose"]; ok && h != "true" {
+	host := service.Name // Default host
+	if h, ok := service.Annotations["kompose.service.expose"]; ok && h != "true" {
 		host = h
 	}
 

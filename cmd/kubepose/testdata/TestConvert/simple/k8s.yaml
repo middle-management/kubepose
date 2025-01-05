@@ -7,13 +7,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis-leader
+      kubepose.service: redis-leader
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: redis-leader
+        kubepose.service: redis-leader
     spec:
       containers:
       - image: redis
@@ -35,13 +35,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: redis-replica
+      kubepose.service: redis-replica
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: redis-replica
+        kubepose.service: redis-replica
     spec:
       containers:
       - args:
@@ -68,13 +68,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: web
+      kubepose.service: web
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: web
+        kubepose.service: web
     spec:
       containers:
       - image: nginx
@@ -98,7 +98,7 @@ spec:
     protocol: TCP
     targetPort: 6379
   selector:
-    app: redis-leader
+    kubepose.service: redis-leader
 status:
   loadBalancer: {}
 
@@ -114,7 +114,7 @@ spec:
     protocol: TCP
     targetPort: 6379
   selector:
-    app: redis-replica
+    kubepose.service: redis-replica
 status:
   loadBalancer: {}
 
@@ -130,6 +130,6 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    app: web
+    kubepose.service: web
 status:
   loadBalancer: {}

@@ -22,13 +22,13 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: postgres
+      kubepose.service: postgres
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: postgres
+        kubepose.service: postgres
     spec:
       containers:
       - args:
@@ -110,6 +110,6 @@ spec:
     protocol: TCP
     targetPort: 5432
   selector:
-    app: postgres
+    kubepose.service: postgres
 status:
   loadBalancer: {}
