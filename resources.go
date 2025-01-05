@@ -8,6 +8,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/yaml"
@@ -15,8 +16,9 @@ import (
 
 type Resources struct {
 	Deployments            []*appsv1.Deployment
-	Services               []*corev1.Service
 	Secrets                []*corev1.Secret
+	Services               []*corev1.Service
+	Ingresses              []*networkingv1.Ingress
 	ConfigMaps             []*corev1.ConfigMap
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
 }
@@ -40,6 +42,7 @@ func (r *Resources) Write(writer io.Writer) error {
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.Deployments)...)
 	items = append(items, toObjects(r.Services)...)
+	items = append(items, toObjects(r.Ingresses)...)
 	items = append(items, toObjects(r.PersistentVolumeClaims)...)
 
 	sort.Slice(items, func(i, j int) bool {

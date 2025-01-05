@@ -1,0 +1,7 @@
+services:
+  web:
+    image: nginx
+    labels:
+      kompose.service.expose: true
+    ports:
+      - "8080:8080"

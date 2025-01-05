@@ -71,6 +71,7 @@ spec:
           name: postgres-configmap-cc0d97a0
           readOnly: true
           subPath: init.sql
+      restartPolicy: Always
       volumes:
       - name: postgres-data
         persistentVolumeClaim:

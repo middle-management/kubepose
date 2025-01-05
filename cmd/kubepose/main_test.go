@@ -32,6 +32,11 @@ func TestConvert(t *testing.T) {
 			Profiles:   []string{"*"},
 			WorkingDir: "testdata/volumes/",
 		}, DryRun: true},
+		{Name: "expose/k8s.yaml", Options: main.Options{
+			Files:      []string{"testdata/expose/compose.yaml"},
+			Profiles:   []string{"*"},
+			WorkingDir: "testdata/expose/",
+		}, DryRun: true},
 		{Name: "interpolation/k8s.yaml", Options: main.Options{
 			Files:      []string{"testdata/interpolation/compose.yaml"},
 			Profiles:   []string{"*"},

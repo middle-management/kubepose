@@ -22,6 +22,7 @@ spec:
         - containerPort: 6379
           protocol: TCP
         resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
@@ -54,6 +55,7 @@ spec:
         - containerPort: 6379
           protocol: TCP
         resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
@@ -81,6 +83,7 @@ spec:
         - containerPort: 8080
           protocol: TCP
         resources: {}
+      restartPolicy: Always
 status: {}
 
 ---

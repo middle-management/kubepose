@@ -16,11 +16,13 @@ spec:
       creationTimestamp: null
       labels:
         app: bar
+        def: BAR
     spec:
       containers:
       - image: scratch
         name: bar
         resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
@@ -45,11 +47,16 @@ spec:
       creationTimestamp: null
       labels:
         app: foo
+        foo1: def
+        foo2: def
+        foo3: default
+        foo4: def
     spec:
       containers:
       - image: scratch
         name: foo
         resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
@@ -76,4 +83,5 @@ spec:
         image: scratch
         name: web
         resources: {}
+      restartPolicy: Always
 status: {}
