@@ -13,23 +13,17 @@ jobs:
         arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@v4
-
+      - uses: helm/kind-action@v1
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-
-      - name: Test
-        run: go test -v ./...
-
-      - name: Build
-        run: go build -ldflags '-s -w -X main.version=${{ github.event.release.tag_name }}' -o composek8s-${{ matrix.goos }}-${{ matrix.arch }} -v github.com/slaskis/compose-k8s/cmd/convert
+      - run: go test -v ./...
+      - run: go build -ldflags '-s -w -X main.version=${{ github.event.release.tag_name }}' -o composek8s-${{ matrix.goos }}-${{ matrix.arch }} -v github.com/slaskis/compose-k8s/cmd/convert
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
-
-      - name: Upload
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
