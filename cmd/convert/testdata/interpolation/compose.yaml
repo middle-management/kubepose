@@ -5,7 +5,10 @@ services:
   foo:
     image: scratch
     labels:
-      "$VAR_NOT_INTERPOLATED_BY_COMPOSE": "BAR"
+      foo1: "${VAR_INTERPOLATED_BY_COMPOSE}"
+      foo2: "$VAR_INTERPOLATED_BY_COMPOSE"
+      foo3: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-default}"
+      foo4: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-${VAR_INTERPOLATED_BY_COMPOSE}}"
   bar:
     image: scratch
     labels:

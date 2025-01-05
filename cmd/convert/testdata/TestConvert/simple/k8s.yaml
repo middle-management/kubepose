@@ -75,7 +75,8 @@ spec:
         app: web
     spec:
       containers:
-      - name: web
+      - image: nginx
+        name: web
         ports:
         - containerPort: 8080
           protocol: TCP

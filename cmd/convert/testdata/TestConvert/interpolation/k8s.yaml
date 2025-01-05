@@ -29,7 +29,10 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    $VAR_NOT_INTERPOLATED_BY_COMPOSE: BAR
+    foo1: def
+    foo2: def
+    foo3: default
+    foo4: def
   name: foo
 spec:
   replicas: 1
