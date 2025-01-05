@@ -7,79 +7,10 @@ kind: ConfigMap
 metadata:
   creationTimestamp: null
   labels:
-    composek8s.volume.hmac-key: composek8s.volumes.v1
-    composek8s.volume.source: init.sql
-    generated-from: composek8s
-  name: postgres-configmap-cc0d97a0
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  creationTimestamp: null
-  name: postgres
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      kubepose.service: postgres
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        kubepose.service: postgres
-    spec:
-      containers:
-      - args:
-        - postgres
-        - -c
-        - log_min_messages=notice
-        - -c
-        - log_min_duration_statement=250ms
-        - -c
-        - session_preload_libraries=auto_explain
-        - -c
-        - shared_preload_libraries=pg_stat_statements
-        - -c
-        - auto_explain.log_min_duration=500ms
-        - -c
-        - auto_explain.log_nested_statements=on
-        - -c
-        - auto_explain.log_analyze=on
-        - -c
-        - track_io_timing=on
-        - -c
-        - pg_stat_statements.track=all
-        env:
-        - name: POSTGRES_DB
-          value: mydb
-        - name: POSTGRES_PASSWORD
-          value: postgres
-        - name: POSTGRES_USER
-          value: postgres
-        image: postgres
-        name: postgres
-        ports:
-        - containerPort: 5432
-          protocol: TCP
-        resources: {}
-        volumeMounts:
-        - mountPath: /var/lib/postgresql/data
-          name: postgres-data
-        - mountPath: /docker-entrypoint-initdb.d/init.sql
-          name: postgres-configmap-cc0d97a0
-          readOnly: true
-          subPath: init.sql
-      restartPolicy: Always
-      volumes:
-      - name: postgres-data
-        persistentVolumeClaim:
-          claimName: postgres-data
-      - configMap:
-          name: postgres-configmap-cc0d97a0
-        name: postgres-configmap-cc0d97a0
-status: {}
+    generated-from: kubepose
+    kubepose.volume.hmac-key: kubepose.volumes.v1
+    kubepose.volume.source: init.sql
+  name: postgres-configmap-c96da7bb
 
 ---
 apiVersion: v1
@@ -87,8 +18,8 @@ kind: PersistentVolumeClaim
 metadata:
   creationTimestamp: null
   labels:
-    composek8s.original-name: postgres-data
-    generated-from: composek8s
+    generated-from: kubepose
+    kubepose.original-name: postgres-data
   name: postgres-data
 spec:
   accessModes:
@@ -100,16 +31,58 @@ status: {}
 
 ---
 apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
   creationTimestamp: null
   name: postgres
 spec:
-  ports:
-  - port: 5432
-    protocol: TCP
-    targetPort: 5432
-  selector:
-    kubepose.service: postgres
-status:
-  loadBalancer: {}
+  containers:
+  - args:
+    - postgres
+    - -c
+    - log_min_messages=notice
+    - -c
+    - log_min_duration_statement=250ms
+    - -c
+    - session_preload_libraries=auto_explain
+    - -c
+    - shared_preload_libraries=pg_stat_statements
+    - -c
+    - auto_explain.log_min_duration=500ms
+    - -c
+    - auto_explain.log_nested_statements=on
+    - -c
+    - auto_explain.log_analyze=on
+    - -c
+    - track_io_timing=on
+    - -c
+    - pg_stat_statements.track=all
+    env:
+    - name: POSTGRES_DB
+      value: mydb
+    - name: POSTGRES_PASSWORD
+      value: postgres
+    - name: POSTGRES_USER
+      value: postgres
+    image: postgres
+    name: postgres
+    ports:
+    - containerPort: 5432
+      protocol: TCP
+    resources: {}
+    volumeMounts:
+    - mountPath: /var/lib/postgresql/data
+      name: postgres-data
+    - mountPath: /docker-entrypoint-initdb.d/init.sql
+      name: postgres-configmap-c96da7bb
+      readOnly: true
+      subPath: init.sql
+  restartPolicy: Never
+  volumes:
+  - name: postgres-data
+    persistentVolumeClaim:
+      claimName: postgres-data
+  - configMap:
+      name: postgres-configmap-c96da7bb
+    name: postgres-configmap-c96da7bb
+status: {}

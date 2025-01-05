@@ -1,135 +1,54 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   creationTimestamp: null
   name: redis-leader
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      kubepose.service: redis-leader
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        kubepose.service: redis-leader
-    spec:
-      containers:
-      - image: redis
-        name: redis-leader
-        ports:
-        - containerPort: 6379
-          protocol: TCP
-        resources: {}
-      restartPolicy: Always
+  containers:
+  - image: redis
+    name: redis-leader
+    ports:
+    - containerPort: 6379
+      protocol: TCP
+    resources: {}
+  restartPolicy: Never
 status: {}
 
 ---
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: v1
+kind: Pod
 metadata:
   creationTimestamp: null
   name: redis-replica
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      kubepose.service: redis-replica
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        kubepose.service: redis-replica
-    spec:
-      containers:
-      - args:
-        - redis-server
-        - --replicaof
-        - redis-leader
-        - "6379"
-        image: redis
-        name: redis-replica
-        ports:
-        - containerPort: 6379
-          protocol: TCP
-        resources: {}
-      restartPolicy: Always
-status: {}
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  creationTimestamp: null
-  name: web
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      kubepose.service: web
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        kubepose.service: web
-    spec:
-      containers:
-      - image: nginx
-        name: web
-        ports:
-        - containerPort: 8080
-          protocol: TCP
-        resources: {}
-      restartPolicy: Always
+  containers:
+  - args:
+    - redis-server
+    - --replicaof
+    - redis-leader
+    - "6379"
+    image: redis
+    name: redis-replica
+    ports:
+    - containerPort: 6379
+      protocol: TCP
+    resources: {}
+  restartPolicy: Never
 status: {}
 
 ---
 apiVersion: v1
-kind: Service
-metadata:
-  creationTimestamp: null
-  name: redis-leader
-spec:
-  ports:
-  - port: 6379
-    protocol: TCP
-    targetPort: 6379
-  selector:
-    kubepose.service: redis-leader
-status:
-  loadBalancer: {}
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  creationTimestamp: null
-  name: redis-replica
-spec:
-  ports:
-  - port: 6379
-    protocol: TCP
-    targetPort: 6379
-  selector:
-    kubepose.service: redis-replica
-status:
-  loadBalancer: {}
-
----
-apiVersion: v1
-kind: Service
+kind: Pod
 metadata:
   creationTimestamp: null
   name: web
 spec:
-  ports:
-  - port: 8080
-    protocol: TCP
-    targetPort: 8080
-  selector:
-    kubepose.service: web
-status:
-  loadBalancer: {}
+  containers:
+  - image: nginx
+    name: web
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+    resources: {}
+  restartPolicy: Never
+status: {}

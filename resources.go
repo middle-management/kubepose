@@ -15,11 +15,12 @@ import (
 )
 
 type Resources struct {
-	Deployments            []*appsv1.Deployment
+	Pods                   []*corev1.Pod
 	Secrets                []*corev1.Secret
 	Services               []*corev1.Service
-	Ingresses              []*networkingv1.Ingress
 	ConfigMaps             []*corev1.ConfigMap
+	Deployments            []*appsv1.Deployment
+	Ingresses              []*networkingv1.Ingress
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
 }
 
@@ -41,6 +42,7 @@ func (r *Resources) Write(writer io.Writer) error {
 	items = append(items, toObjects(r.ConfigMaps)...)
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.Deployments)...)
+	items = append(items, toObjects(r.Pods)...)
 	items = append(items, toObjects(r.Services)...)
 	items = append(items, toObjects(r.Ingresses)...)
 	items = append(items, toObjects(r.PersistentVolumeClaims)...)

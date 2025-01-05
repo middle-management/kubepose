@@ -21,6 +21,8 @@ func TestConvert(t *testing.T) {
 			Files:      []string{"testdata/secrets/compose.yaml"},
 			Profiles:   []string{"*"},
 			WorkingDir: "testdata/secrets/",
+		}, Env: map[string]string{
+			"ACE_IDENTITY": "abc",
 		}, DryRun: true},
 		{Name: "simple/k8s.yaml", Options: main.Options{
 			Files:      []string{"testdata/simple/compose.yaml"},

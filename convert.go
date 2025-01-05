@@ -34,15 +34,31 @@ func Convert(project *types.Project) (*Resources, error) {
 
 	// Convert each service to Kubernetes resources
 	for _, service := range project.Services {
-		// Create Deployment
 		// TODO DaemonSet, StatefulSet, CronJob
+
+		restartPolicy := getRestartPolicy(service)
+		if restartPolicy != corev1.RestartPolicyAlways {
+			// create pod for on-failure/never restart policies
+			pod := createPod(service)
+
+			// Update pod with secrets
+			updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
+
+			// Update pod with volumes
+			updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources, project)
+
+			resources.Pods = append(resources.Pods, pod)
+			continue
+		}
+
+		// Create Deployment
 		deployment := createDeployment(service)
 
 		// Update deployment with secrets if any
-		updateDeploymentWithSecrets(deployment, service, secretMappings)
+		updatePodSpecWithSecrets(&deployment.Spec.Template.Spec, service, secretMappings)
 
 		// Update deployment with volumes
-		updateDeploymentWithVolumes(deployment, service, volumeMappings, resources, project)
+		updatePodSpecWithVolumes(&deployment.Spec.Template.Spec, service, volumeMappings, resources, project)
 
 		// Add deployment to resources
 		resources.Deployments = append(resources.Deployments, deployment)
@@ -60,6 +76,41 @@ func Convert(project *types.Project) (*Resources, error) {
 	return resources, nil
 }
 
+func createPod(service types.ServiceConfig) *corev1.Pod {
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        service.Name,
+			Annotations: service.Annotations,
+			Labels:      service.Labels,
+		},
+		Spec: createPodSpec(service),
+	}
+}
+
+func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
+	return corev1.PodSpec{
+		RestartPolicy: getRestartPolicy(service),
+		Containers: []corev1.Container{
+			{
+				Name:       service.Name,
+				Image:      service.Image,
+				Command:    service.Entrypoint,
+				WorkingDir: service.WorkingDir,
+				Stdin:      service.StdinOpen,
+				TTY:        service.Tty,
+				Args:       escapeEnvs(service.Command),
+				Ports:      convertPorts(service.Ports),
+				Env:        convertEnvironment(service.Environment),
+				Resources:  getResourceRequirements(service),
+			},
+		},
+	}
+}
+
 func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 	replicas := int32(1)
 	if service.Deploy != nil && service.Deploy.Replicas != nil {
@@ -72,15 +123,6 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 	}
 	podLabels[ServiceSelectorLabelKey] = service.Name
 
-	restartPolicy := corev1.RestartPolicyAlways
-	if service.Deploy != nil && service.Deploy.RestartPolicy != nil {
-		switch service.Deploy.RestartPolicy.Condition {
-		case "on-failure":
-			restartPolicy = corev1.RestartPolicyOnFailure
-		case "never":
-			restartPolicy = corev1.RestartPolicyNever
-		}
-	}
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -103,20 +145,7 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 					Annotations: service.Annotations,
 					Labels:      podLabels,
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy: restartPolicy,
-					Containers: []corev1.Container{
-						{
-							Name:      service.Name,
-							Image:     service.Image,
-							Command:   service.Entrypoint,
-							Args:      escapeEnvs(service.Command),
-							Ports:     convertPorts(service.Ports),
-							Env:       convertEnvironment(service.Environment),
-							Resources: getResourceRequirements(service),
-						},
-					},
-				},
+				Spec: createPodSpec(service),
 			},
 		},
 	}
@@ -298,5 +327,30 @@ func createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 				},
 			},
 		},
+	}
+}
+
+func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
+	if service.Deploy != nil && service.Deploy.RestartPolicy != nil {
+		switch service.Deploy.RestartPolicy.Condition {
+		case "on-failure":
+			return corev1.RestartPolicyOnFailure
+		case "never":
+			return corev1.RestartPolicyNever
+		}
+	}
+
+	// TODO restart: on-failure[:max-retries] should probably fail...
+
+	switch strings.ToLower(service.Restart) {
+	case "always":
+		return corev1.RestartPolicyAlways
+	case "no":
+		return corev1.RestartPolicyNever
+	case "unless-stopped", "on-failure":
+		return corev1.RestartPolicyOnFailure
+	default:
+		// compose default is "no
+		return corev1.RestartPolicyNever
 	}
 }
