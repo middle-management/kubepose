@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 func Convert(project *types.Project) (*Resources, error) {
@@ -50,23 +51,29 @@ func Convert(project *types.Project) (*Resources, error) {
 			resources.Pods = append(resources.Pods, pod)
 			continue
 		}
+		// TODO InitContainer, LivenessProbe, ReadinessProbe, ImagePullSecrets, SecurityContext
 
-		// Create Deployment
-		deployment := createDeployment(service)
-
-		// Update deployment with secrets if any
-		updatePodSpecWithSecrets(&deployment.Spec.Template.Spec, service, secretMappings)
-
-		// Update deployment with volumes
-		updatePodSpecWithVolumes(&deployment.Spec.Template.Spec, service, volumeMappings, resources, project)
-
-		// Add deployment to resources
-		resources.Deployments = append(resources.Deployments, deployment)
+		switch service.Deploy.Mode {
+		case "global":
+			daemonSet := createDaemonSet(service)
+			updatePodSpecWithSecrets(&daemonSet.Spec.Template.Spec, service, secretMappings)
+			updatePodSpecWithVolumes(&daemonSet.Spec.Template.Spec, service, volumeMappings, resources, project)
+			resources.DaemonSets = append(resources.DaemonSets, daemonSet)
+			break
+		case "replicated":
+			continue
+		default:
+			deployment := createDeployment(service)
+			updatePodSpecWithSecrets(&deployment.Spec.Template.Spec, service, secretMappings)
+			updatePodSpecWithVolumes(&deployment.Spec.Template.Spec, service, volumeMappings, resources, project)
+			resources.Deployments = append(resources.Deployments, deployment)
+		}
 
 		// Create Service if ports are defined
 		if len(service.Ports) > 0 {
-			k8sService := createService(service)
-			resources.Services = append(resources.Services, k8sService)
+			resources.Services = append(resources.Services, createService(service))
+
+			// Create Ingress if exposed
 			if _, ok := service.Annotations["kompose.service.expose"]; ok {
 				resources.Ingresses = append(resources.Ingresses, createIngress(service))
 			}
@@ -111,17 +118,41 @@ func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 	}
 }
 
+func createDaemonSet(service types.ServiceConfig) *appsv1.DaemonSet {
+	return &appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "DaemonSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        service.Name,
+			Annotations: service.Annotations,
+			Labels:      service.Labels,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					ServiceSelectorLabelKey: service.Name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: service.Annotations,
+					Labels: mergeMaps(service.Labels, map[string]string{
+						ServiceSelectorLabelKey: service.Name,
+					}),
+				},
+				Spec: createPodSpec(service),
+			},
+		},
+	}
+}
+
 func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
-	replicas := int32(1)
+	var replicas *int32
 	if service.Deploy != nil && service.Deploy.Replicas != nil {
-		replicas = int32(*service.Deploy.Replicas)
+		replicas = ptr.To(int32(*service.Deploy.Replicas))
 	}
-	// TODO InitContainer, LivenessProbe, ReadinessProbe, ImagePullSecrets, SecurityContext
-	podLabels := make(map[string]string)
-	for k, v := range service.Labels {
-		podLabels[k] = v
-	}
-	podLabels[ServiceSelectorLabelKey] = service.Name
 
 	return &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
@@ -134,7 +165,7 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			Labels:      service.Labels,
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					ServiceSelectorLabelKey: service.Name,
@@ -143,12 +174,24 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: service.Annotations,
-					Labels:      podLabels,
+					Labels: mergeMaps(service.Labels, map[string]string{
+						ServiceSelectorLabelKey: service.Name,
+					}),
 				},
 				Spec: createPodSpec(service),
 			},
 		},
 	}
+}
+
+func mergeMaps(maps ...map[string]string) map[string]string {
+	merged := make(map[string]string)
+	for _, m := range maps {
+		for k, v := range m {
+			merged[k] = v
+		}
+	}
+	return merged
 }
 
 var reEnvVars = regexp.MustCompile(`\$([a-zA-Z0-9.-_]+)`)

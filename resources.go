@@ -19,6 +19,7 @@ type Resources struct {
 	Secrets                []*corev1.Secret
 	Services               []*corev1.Service
 	ConfigMaps             []*corev1.ConfigMap
+	DaemonSets             []*appsv1.DaemonSet
 	Deployments            []*appsv1.Deployment
 	Ingresses              []*networkingv1.Ingress
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
