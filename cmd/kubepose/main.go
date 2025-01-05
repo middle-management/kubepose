@@ -7,7 +7,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
-	composek8s "github.com/slaskis/compose-k8s"
+	"github.com/slaskis/kubepose"
 )
 
 func main() {
@@ -29,7 +29,7 @@ func run() error {
 		return fmt.Errorf("unable to load files: %w", err)
 	}
 
-	resources, err := composek8s.Convert(project)
+	resources, err := kubepose.Convert(project)
 	if err != nil {
 		return fmt.Errorf("unable to convert: %w", err)
 	}

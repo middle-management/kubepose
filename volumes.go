@@ -1,4 +1,4 @@
-package composek8s
+package kubepose
 
 import (
 	"fmt"

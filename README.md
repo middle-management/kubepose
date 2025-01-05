@@ -1,4 +1,4 @@
-# compose-k8s
+# kubepose
 
 A simpler version of kompose, which only converts compose spec to k8s yaml files.
 

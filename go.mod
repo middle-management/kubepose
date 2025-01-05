@@ -1,4 +1,4 @@
-module github.com/slaskis/compose-k8s
+module github.com/slaskis/kubepose
 
 go 1.23.0
 

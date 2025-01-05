@@ -5,9 +5,9 @@ import (
 	"os/exec"
 	"testing"
 
-	composek8s "github.com/slaskis/compose-k8s"
-	main "github.com/slaskis/compose-k8s/cmd/convert"
-	"github.com/slaskis/compose-k8s/internal/test"
+	"github.com/slaskis/kubepose"
+	main "github.com/slaskis/kubepose/cmd/kubepose"
+	"github.com/slaskis/kubepose/internal/test"
 )
 
 func TestConvert(t *testing.T) {
@@ -57,7 +57,7 @@ func TestConvert(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			resources, err := composek8s.Convert(project)
+			resources, err := kubepose.Convert(project)
 			if err != nil {
 				t.Fatal(err)
 			}
