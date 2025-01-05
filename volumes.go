@@ -43,14 +43,14 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				},
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				// TODO get StorageClassName from label "kubepose.volume.storage_class_name"?
+				// TODO get StorageClassName from label "kompose.volume.storage-class-name"?
 
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
-						// TODO get from label "kubepose.volume.requests"?
+						// TODO get from label "kompose.volume.size"?
 						corev1.ResourceStorage: resource.MustParse("10Gi"),
 					},
 				},
@@ -95,7 +95,7 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 			}
 
 			// Create ConfigMap
-			configMapName := fmt.Sprintf("%s-configmap-%s", service.Name, hash)
+			configMapName := fmt.Sprintf("%s-%s", service.Name, hash)
 			mountPath := filepath.Base(serviceVolume.Target)
 			configMap := &corev1.ConfigMap{
 				Immutable: ptr.To(true),

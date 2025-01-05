@@ -18,12 +18,9 @@ func main() {
 }
 
 func run() error {
-	workingDir, _ := os.Getwd()
-
 	project, err := NewProject(Options{
-		Files:      []string{"compose.yaml"},
-		Profiles:   []string{"*"},
-		WorkingDir: workingDir,
+		Files:    []string{"compose.yaml"},
+		Profiles: []string{"*"},
 	})
 	if err != nil {
 		return fmt.Errorf("unable to load files: %w", err)
@@ -43,16 +40,16 @@ func run() error {
 }
 
 type Options struct {
-	Files      []string
-	Profiles   []string
-	WorkingDir string
+	Files    []string
+	Profiles []string
 }
 
 func NewProject(opts Options) (*types.Project, error) {
 	projectOptions, err := cli.NewProjectOptions(
 		opts.Files,
 		cli.WithOsEnv,
-		cli.WithWorkingDirectory(opts.WorkingDir),
+		cli.WithConfigFileEnv,
+		cli.WithDefaultConfigPath,
 		cli.WithInterpolation(true),
 		cli.WithProfiles(opts.Profiles),
 	)

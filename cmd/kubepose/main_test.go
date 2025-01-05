@@ -18,31 +18,26 @@ func TestConvert(t *testing.T) {
 		main.Options
 	}{
 		{Name: "secrets/k8s.yaml", Options: main.Options{
-			Files:      []string{"testdata/secrets/compose.yaml"},
-			Profiles:   []string{"*"},
-			WorkingDir: "testdata/secrets/",
+			Files:    []string{"testdata/secrets/compose.yaml"},
+			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"ACE_IDENTITY": "abc",
 		}, DryRun: true},
 		{Name: "simple/k8s.yaml", Options: main.Options{
-			Files:      []string{"testdata/simple/compose.yaml"},
-			Profiles:   []string{"*"},
-			WorkingDir: "testdata/simple/",
+			Files:    []string{"testdata/simple/compose.yaml"},
+			Profiles: []string{"*"},
 		}, DryRun: true},
 		{Name: "volumes/k8s.yaml", Options: main.Options{
-			Files:      []string{"testdata/volumes/compose.yaml"},
-			Profiles:   []string{"*"},
-			WorkingDir: "testdata/volumes/",
+			Files:    []string{"testdata/volumes/compose.yaml"},
+			Profiles: []string{"*"},
 		}, DryRun: true},
 		{Name: "expose/k8s.yaml", Options: main.Options{
-			Files:      []string{"testdata/expose/compose.yaml"},
-			Profiles:   []string{"*"},
-			WorkingDir: "testdata/expose/",
+			Files:    []string{"testdata/expose/compose.yaml"},
+			Profiles: []string{"*"},
 		}, DryRun: true},
 		{Name: "interpolation/k8s.yaml", Options: main.Options{
-			Files:      []string{"testdata/interpolation/compose.yaml"},
-			Profiles:   []string{"*"},
-			WorkingDir: "testdata/interpolation/",
+			Files:    []string{"testdata/interpolation/compose.yaml"},
+			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"VAR_NOT_INTERPOLATED_BY_COMPOSE": "abc",
 			"VAR_INTERPOLATED_BY_COMPOSE":     "def",
