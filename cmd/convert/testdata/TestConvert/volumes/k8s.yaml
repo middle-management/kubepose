@@ -52,10 +52,10 @@ spec:
         - -c
         - pg_stat_statements.track=all
         env:
-        - name: POSTGRES_PASSWORD
-          value: postgres
         - name: POSTGRES_DB
           value: mydb
+        - name: POSTGRES_PASSWORD
+          value: postgres
         - name: POSTGRES_USER
           value: postgres
         image: postgres

@@ -3,6 +3,7 @@ package composek8s
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -184,5 +185,8 @@ func convertEnvironment(env map[string]*string) []corev1.EnvVar {
 		}
 		envVars = append(envVars, envVar)
 	}
+	sort.Slice(envVars, func(i, j int) bool {
+		return envVars[i].Name < envVars[j].Name
+	})
 	return envVars
 }
