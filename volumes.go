@@ -97,6 +97,7 @@ func updateDeploymentWithVolumes(deployment *appsv1.Deployment, service types.Se
 
 			// Create ConfigMap
 			configMapName := fmt.Sprintf("%s-configmap-%s", service.Name, hash)
+			mountPath := filepath.Base(serviceVolume.Target)
 			configMap := &corev1.ConfigMap{
 				Immutable: pointer.Bool(true),
 				TypeMeta: metav1.TypeMeta{
@@ -112,7 +113,7 @@ func updateDeploymentWithVolumes(deployment *appsv1.Deployment, service types.Se
 					},
 				},
 				Data: map[string]string{
-					filepath.Base(serviceVolume.Target): string(content),
+					mountPath: string(content),
 				},
 			}
 			for k, v := range service.Labels {
@@ -121,10 +122,10 @@ func updateDeploymentWithVolumes(deployment *appsv1.Deployment, service types.Se
 
 			resources.ConfigMaps = append(resources.ConfigMaps, configMap)
 
-			volumeMappings[configMapName] = VolumeMapping{
+			volumeMappings[serviceVolume.Source] = VolumeMapping{
 				Name:          configMapName,
 				ConfigMapName: configMapName,
-				MountPath:     projectPath,
+				MountPath:     mountPath,
 				IsConfigMap:   true,
 			}
 		}
@@ -154,22 +155,43 @@ func updateDeploymentWithVolumes(deployment *appsv1.Deployment, service types.Se
 				volumeMounts = append(volumeMounts, corev1.VolumeMount{
 					Name:      mapping.Name,
 					MountPath: mountPath,
-					ReadOnly:  serviceVolume.ReadOnly,
+					SubPath:   filepath.Base(serviceVolume.Target),
+					ReadOnly:  serviceVolume.ReadOnly || mapping.IsConfigMap,
+				})
+			} else if serviceVolume.Type == "volume" {
+				volumes = append(volumes, corev1.Volume{
+					Name: mapping.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ReadOnly:  serviceVolume.ReadOnly,
+							ClaimName: mapping.Name,
+						},
+					},
+				})
+
+				volumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:        mapping.Name,
+					ReadOnly:    serviceVolume.ReadOnly,
+					MountPath:   serviceVolume.Target,
+					SubPathExpr: serviceVolume.Volume.Subpath,
 				})
 			} else {
-				// Handle other volume types if needed
-				// This could include persistent volumes, empty dir, etc.
+				fmt.Println("unknown volume type")
+				fmt.Printf("%# v\n", mapping)
+				fmt.Printf("%# v\n", serviceVolume)
 			}
+		} else {
+			fmt.Println("volume not found in mappings")
+			fmt.Printf("%# v\n", volumeMappings)
+			fmt.Printf("%# v\n", serviceVolume)
 		}
 	}
 
 	// Add volumes to pod spec if any were created
-	if len(volumes) > 0 {
-		deployment.Spec.Template.Spec.Volumes = append(
-			deployment.Spec.Template.Spec.Volumes,
-			volumes...,
-		)
-	}
+	deployment.Spec.Template.Spec.Volumes = append(
+		deployment.Spec.Template.Spec.Volumes,
+		volumes...,
+	)
 
 	// Add volume mounts to container if any were created
 	if len(volumeMounts) > 0 {

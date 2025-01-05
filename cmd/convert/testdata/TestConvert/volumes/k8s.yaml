@@ -31,12 +31,53 @@ spec:
         app: postgres
     spec:
       containers:
-      - image: postgres
+      - args:
+        - postgres
+        - -c
+        - log_min_messages=notice
+        - -c
+        - log_min_duration_statement=250ms
+        - -c
+        - session_preload_libraries=auto_explain
+        - -c
+        - shared_preload_libraries=pg_stat_statements
+        - -c
+        - auto_explain.log_min_duration=500ms
+        - -c
+        - auto_explain.log_nested_statements=on
+        - -c
+        - auto_explain.log_analyze=on
+        - -c
+        - track_io_timing=on
+        - -c
+        - pg_stat_statements.track=all
+        env:
+        - name: POSTGRES_PASSWORD
+          value: postgres
+        - name: POSTGRES_DB
+          value: mydb
+        - name: POSTGRES_USER
+          value: postgres
+        image: postgres
         name: postgres
         ports:
         - containerPort: 5432
           protocol: TCP
         resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/postgresql/data
+          name: postgres-data
+        - mountPath: /docker-entrypoint-initdb.d/init.sql
+          name: postgres-configmap-cc0d97a0
+          readOnly: true
+          subPath: init.sql
+      volumes:
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: postgres-data
+      - configMap:
+          name: postgres-configmap-cc0d97a0
+        name: postgres-configmap-cc0d97a0
 status: {}
 
 ---

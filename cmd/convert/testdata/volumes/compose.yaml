@@ -1,8 +1,39 @@
 services:
   postgres:
     image: postgres
+    command:
+      [
+        "postgres",
+        "-c",
+        "log_min_messages=notice",
+        "-c",
+        "log_min_duration_statement=250ms",
+        "-c",
+        "session_preload_libraries=auto_explain",
+        "-c",
+        "shared_preload_libraries=pg_stat_statements",
+        "-c",
+        "auto_explain.log_min_duration=500ms",
+        "-c",
+        "auto_explain.log_nested_statements=on",
+        "-c",
+        "auto_explain.log_analyze=on",
+        "-c",
+        "track_io_timing=on",
+        "-c",
+        "pg_stat_statements.track=all",
+      ]
     ports:
       - "5432"
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: /usr/bin/pg_isready --username=$$POSTGRES_USER --dbname=$$POSTGRES_DB
+      interval: 3s
+      timeout: 10s
+      retries: 120
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
