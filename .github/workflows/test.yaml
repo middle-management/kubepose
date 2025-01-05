@@ -11,9 +11,4 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - run: go build -v -cover -ldflags '-s -w -X main.version=test' -o ace .
-        env:
-          CGO_ENABLED: 0
-      - run: go test -v -race .
-        env:
-          ACE_TESTBIN: ./ace
+      - run: go test -v -cover -ldflags '-s -w -X main.version=test' ./...
