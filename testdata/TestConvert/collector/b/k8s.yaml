@@ -1,0 +1,68 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          http:
+            endpoint: 0.0.0.0:4318
+    exporters:
+      debug:
+        verbosity: detailed
+    service:
+      pipelines:
+        traces:
+          receivers:
+            - otlp
+          exporters:
+            - debug
+immutable: true
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    generated-from: kubepose
+    kubepose.volume.hmac-key: kubepose.volumes.v1
+    kubepose.volume.source: b/config.yaml
+  name: collector-4eb5a9b6
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: collector
+spec:
+  containers:
+  - args:
+    - /otelcol-contrib
+    - --config=/etc/otelcol-contrib/config.yaml
+    env:
+    - name: K8S_LOG_PATH
+      value: /var/log/pods/default_*/*/*.log
+    - name: K8S_NAMESPACE
+      value: default
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    name: collector
+    ports:
+    - containerPort: 4317
+      protocol: TCP
+    - containerPort: 4318
+      protocol: TCP
+    resources: {}
+    volumeMounts:
+    - mountPath: /etc/otelcol-contrib/config.yaml
+      name: collector-4eb5a9b6
+      readOnly: true
+      subPath: config.yaml
+    - mountPath: /var/log/pods
+      name: pod-logs
+  restartPolicy: Never
+  volumes:
+  - configMap:
+      name: collector-4eb5a9b6
+    name: collector-4eb5a9b6
+  - hostPath:
+      path: /var/log/pods
+    name: pod-logs
+status: {}

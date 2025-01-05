@@ -16,13 +16,24 @@ type VolumeMapping struct {
 	Name          string
 	ConfigMapName string
 	MountPath     string
+	HostPath      string
 	IsConfigMap   bool
+	IsHostPath    bool
 }
 
 func processVolumes(project *types.Project, resources *Resources) (map[string]VolumeMapping, error) {
 	volumeMappings := make(map[string]VolumeMapping)
 
 	for name, volume := range project.Volumes {
+		if hostPath, exists := volume.Labels["kubepose.volume.hostPath"]; exists {
+			volumeMappings[name] = VolumeMapping{
+				Name:       name,
+				IsHostPath: true,
+				HostPath:   hostPath,
+			}
+			continue
+		}
+
 		// Handle regular volumes
 		volumeMappings[name] = VolumeMapping{
 			Name:        name,
@@ -156,6 +167,24 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 					MountPath: mountPath,
 					SubPath:   filepath.Base(serviceVolume.Target),
 					ReadOnly:  serviceVolume.ReadOnly || mapping.IsConfigMap,
+				})
+
+			} else if mapping.IsHostPath {
+				// Create volume for hostPath
+				volumes = append(volumes, corev1.Volume{
+					Name: mapping.Name,
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: mapping.HostPath,
+						},
+					},
+				})
+
+				volumeMounts = append(volumeMounts, corev1.VolumeMount{
+					Name:        mapping.Name,
+					ReadOnly:    serviceVolume.ReadOnly,
+					MountPath:   serviceVolume.Target,
+					SubPathExpr: serviceVolume.Volume.Subpath,
 				})
 			} else if serviceVolume.Type == "volume" {
 				volumes = append(volumes, corev1.Volume{

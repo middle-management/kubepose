@@ -1,0 +1,122 @@
+apiVersion: v1
+data:
+  config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      filelog/k8s:
+        include:
+          - ${env:K8S_LOG_PATH}
+        exclude:
+          - /var/log/pods/*/collector/*.log
+          - /var/log/pods/*/exporter/*.log
+        start_at: beginning
+        retry_on_failure:
+          enabled: true
+        include_file_path: true
+        include_file_name: false
+        operators:
+          - type: container
+          - type: recombine
+            combine_field: body
+            max_batch_size: 10000
+            source_identifier: attributes["log.file.path"]
+            is_first_entry: 'body matches "^[^\\s]"'
+          - type: json_parser
+            if: body matches "^{.*}$"
+          - type: severity_parser
+            if: '"level" in attributes'
+            parse_from: attributes.level
+          - type: move
+            if: '"msg" in attributes'
+            from: attributes.msg
+            to: body
+          - type: trace_parser
+            trace_id:
+              parse_from: attributes.trace_id
+            span_id:
+              parse_from: attributes.span_id
+            trace_flags:
+              parse_from: attributes.trace_flags
+          - type: move
+            if: '"service_name" in attributes'
+            from: attributes["service_name"]
+            to: attributes["service.name"]
+          - type: move
+            if: '"service_namespace" in attributes'
+            from: attributes["service_namespace"]
+            to: attributes["service.namespace"]
+          - type: move
+            if: '"service.name" in attributes'
+            from: attributes["service.name"]
+            to: resource["service.name"]
+    exporters:
+      debug:
+        verbosity: detailed
+    service:
+      pipelines:
+        traces:
+          receivers:
+            - otlp
+          exporters:
+            - debug
+        logs:
+          receivers:
+            - otlp
+            - filelog/k8s
+          exporters:
+            - debug
+immutable: true
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  labels:
+    generated-from: kubepose
+    kubepose.volume.hmac-key: kubepose.volumes.v1
+    kubepose.volume.source: a/config.yaml
+  name: collector-74303e89
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  name: collector
+spec:
+  containers:
+  - args:
+    - /otelcol-contrib
+    - --config=/etc/otelcol-contrib/config.yaml
+    env:
+    - name: K8S_LOG_PATH
+      value: /var/log/pods/default_*/*/*.log
+    - name: K8S_NAMESPACE
+      value: default
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    name: collector
+    ports:
+    - containerPort: 4317
+      protocol: TCP
+    - containerPort: 4318
+      protocol: TCP
+    resources: {}
+    volumeMounts:
+    - mountPath: /etc/otelcol-contrib/config.yaml
+      name: collector-74303e89
+      readOnly: true
+      subPath: config.yaml
+    - mountPath: /var/log/pods
+      name: pod-logs
+  restartPolicy: Never
+  volumes:
+  - configMap:
+      name: collector-74303e89
+    name: collector-74303e89
+  - hostPath:
+      path: /var/log/pods
+    name: pod-logs
+status: {}

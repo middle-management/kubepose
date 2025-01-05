@@ -43,6 +43,18 @@ func TestConvert(t *testing.T) {
 			"VAR_NOT_INTERPOLATED_BY_COMPOSE": "abc",
 			"VAR_INTERPOLATED_BY_COMPOSE":     "def",
 		}, DryRun: true},
+		{Name: "collector/a/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/collector/compose.yaml"},
+			Profiles: []string{"*"},
+		}, Env: map[string]string{
+			"CONFIG": "a",
+		}, DryRun: true},
+		{Name: "collector/b/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/collector/compose.yaml"},
+			Profiles: []string{"*"},
+		}, Env: map[string]string{
+			"CONFIG": "b",
+		}, DryRun: true},
 	}
 	for _, tt := range tests {
 		tt := tt
