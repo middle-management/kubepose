@@ -1,16 +1,7 @@
 receivers:
-  otlp:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317
-      http:
-        endpoint: 0.0.0.0:4318
   filelog/k8s:
     include:
       - ${env:K8S_LOG_PATH}
-    exclude:
-      - /var/log/pods/*/collector/*.log
-      - /var/log/pods/*/exporter/*.log
     start_at: beginning
     retry_on_failure:
       enabled: true
@@ -18,52 +9,13 @@ receivers:
     include_file_name: false
     operators:
       - type: container
-      - type: recombine
-        combine_field: body
-        max_batch_size: 10000
-        source_identifier: attributes["log.file.path"]
-        is_first_entry: 'body matches "^[^\\s]"'
-      - type: json_parser
-        if: body matches "^{.*}$"
-      - type: severity_parser
-        if: '"level" in attributes'
-        parse_from: attributes.level
-      - type: move
-        if: '"msg" in attributes'
-        from: attributes.msg
-        to: body
-      - type: trace_parser
-        trace_id:
-          parse_from: attributes.trace_id
-        span_id:
-          parse_from: attributes.span_id
-        trace_flags:
-          parse_from: attributes.trace_flags
-      - type: move
-        if: '"service_name" in attributes'
-        from: attributes["service_name"]
-        to: attributes["service.name"]
-      - type: move
-        if: '"service_namespace" in attributes'
-        from: attributes["service_namespace"]
-        to: attributes["service.namespace"]
-      - type: move
-        if: '"service.name" in attributes'
-        from: attributes["service.name"]
-        to: resource["service.name"]
 exporters:
   debug:
     verbosity: detailed
 service:
   pipelines:
-    traces:
-      receivers:
-        - otlp
-      exporters:
-        - debug
     logs:
       receivers:
-        - otlp
         - filelog/k8s
       exporters:
         - debug

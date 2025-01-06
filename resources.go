@@ -42,6 +42,7 @@ func (r *Resources) Write(writer io.Writer) error {
 	var items []k8sObject
 	items = append(items, toObjects(r.ConfigMaps)...)
 	items = append(items, toObjects(r.Secrets)...)
+	items = append(items, toObjects(r.DaemonSets)...)
 	items = append(items, toObjects(r.Deployments)...)
 	items = append(items, toObjects(r.Pods)...)
 	items = append(items, toObjects(r.Services)...)

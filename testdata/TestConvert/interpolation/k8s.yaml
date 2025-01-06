@@ -1,21 +1,32 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
     def: BAR
   name: bar
 spec:
-  containers:
-  - image: scratch
-    name: bar
-    resources: {}
-  restartPolicy: Never
+  selector:
+    matchLabels:
+      kubepose.service: bar
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        def: BAR
+        kubepose.service: bar
+    spec:
+      containers:
+      - image: scratch
+        name: bar
+        resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
@@ -25,25 +36,49 @@ metadata:
     foo4: def
   name: foo
 spec:
-  containers:
-  - image: scratch
-    name: foo
-    resources: {}
-  restartPolicy: Never
+  selector:
+    matchLabels:
+      kubepose.service: foo
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        foo1: def
+        foo2: def
+        foo3: default
+        foo4: def
+        kubepose.service: foo
+    spec:
+      containers:
+      - image: scratch
+        name: foo
+        resources: {}
+      restartPolicy: Always
 status: {}
 
 ---
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   creationTimestamp: null
   name: web
 spec:
-  containers:
-  - args:
-    - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
-    image: scratch
-    name: web
-    resources: {}
-  restartPolicy: Never
+  selector:
+    matchLabels:
+      kubepose.service: web
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubepose.service: web
+    spec:
+      containers:
+      - args:
+        - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
+        image: scratch
+        name: web
+        resources: {}
+      restartPolicy: Always
 status: {}

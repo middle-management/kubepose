@@ -62,8 +62,9 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]Se
 				Kind:       "Secret",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: k8sSecretName,
-				Labels: map[string]string{
+				Name:   k8sSecretName,
+				Labels: secret.Labels,
+				Annotations: map[string]string{
 					"generated-from":            "kubepose",
 					"kubepose.original-name":    name,
 					"kubepose.secrets.hmac-key": secretsHmacKey,
@@ -75,9 +76,6 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]Se
 			Data: map[string][]byte{
 				secretsDefaultKey: content,
 			},
-		}
-		for k, v := range secret.Labels {
-			k8sSecret.Labels[k] = v
 		}
 
 		resources.Secrets = append(resources.Secrets, &k8sSecret)

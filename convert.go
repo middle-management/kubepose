@@ -35,7 +35,7 @@ func Convert(project *types.Project) (*Resources, error) {
 
 	// Convert each service to Kubernetes resources
 	for _, service := range project.Services {
-		// TODO DaemonSet, StatefulSet, CronJob
+		// TODO StatefulSet, CronJob
 
 		restartPolicy := getRestartPolicy(service)
 		if restartPolicy != corev1.RestartPolicyAlways {
@@ -53,20 +53,23 @@ func Convert(project *types.Project) (*Resources, error) {
 		}
 		// TODO InitContainer, LivenessProbe, ReadinessProbe, ImagePullSecrets, SecurityContext
 
-		switch service.Deploy.Mode {
+		deployMode := "replicated"
+		if service.Deploy != nil {
+			deployMode = service.Deploy.Mode
+		}
+		switch deployMode {
 		case "global":
 			daemonSet := createDaemonSet(service)
 			updatePodSpecWithSecrets(&daemonSet.Spec.Template.Spec, service, secretMappings)
 			updatePodSpecWithVolumes(&daemonSet.Spec.Template.Spec, service, volumeMappings, resources, project)
 			resources.DaemonSets = append(resources.DaemonSets, daemonSet)
-			break
 		case "replicated":
-			continue
-		default:
 			deployment := createDeployment(service)
 			updatePodSpecWithSecrets(&deployment.Spec.Template.Spec, service, secretMappings)
 			updatePodSpecWithVolumes(&deployment.Spec.Template.Spec, service, volumeMappings, resources, project)
 			resources.Deployments = append(resources.Deployments, deployment)
+		default:
+			return nil, fmt.Errorf("unsupported deploy mode: %s", deployMode)
 		}
 
 		// Create Service if ports are defined
@@ -246,6 +249,7 @@ func convertServicePorts(ports []types.ServicePortConfig) []corev1.ServicePort {
 			published, _ = strconv.Atoi(port.Published)
 		}
 		servicePort := corev1.ServicePort{
+			Name:       strconv.Itoa(published),
 			Port:       int32(published),
 			TargetPort: intstr.FromInt(int(port.Target)),
 			Protocol:   convertProtocol(port.Protocol),
@@ -393,7 +397,7 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 	case "unless-stopped", "on-failure":
 		return corev1.RestartPolicyOnFailure
 	default:
-		// compose default is "no
-		return corev1.RestartPolicyNever
+		// compose default is "no" but that is not valid in k8s deployments etc
+		return corev1.RestartPolicyAlways
 	}
 }

@@ -1,7 +1,6 @@
 services:
   collector:
     image: otel/opentelemetry-collector-contrib:0.116.1
-    command: ["/otelcol-contrib", "--config=/etc/otelcol-contrib/config.yaml"]
     healthcheck:
       disable: false
     environment:
@@ -18,5 +17,5 @@ services:
 
 volumes:
   pod-logs:
-    labels:
-      kubepose.volume.hostPath: /var/log/pods
+    x-kubepose-volume:
+      hostPath: /var/log/pods

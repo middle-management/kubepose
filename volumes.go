@@ -21,10 +21,24 @@ type VolumeMapping struct {
 	IsHostPath    bool
 }
 
+type VolumeExtension struct {
+	HostPath string `yaml:"hostPath"`
+}
+
 func processVolumes(project *types.Project, resources *Resources) (map[string]VolumeMapping, error) {
 	volumeMappings := make(map[string]VolumeMapping)
 
 	for name, volume := range project.Volumes {
+		ext := VolumeExtension{}
+		if exists, err := volume.Extensions.Get("x-kubepose-volume", &ext); err == nil && exists && ext.HostPath != "" {
+			volumeMappings[name] = VolumeMapping{
+				Name:       name,
+				IsHostPath: true,
+				HostPath:   ext.HostPath,
+			}
+			continue
+		}
+
 		if hostPath, exists := volume.Labels["kubepose.volume.hostPath"]; exists {
 			volumeMappings[name] = VolumeMapping{
 				Name:       name,
@@ -47,8 +61,9 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				Kind:       "PersistentVolumeClaim",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name: name,
-				Labels: map[string]string{
+				Name:   name,
+				Labels: volume.Labels,
+				Annotations: map[string]string{
 					"generated-from":         "kubepose",
 					"kubepose.original-name": name,
 				},
@@ -66,9 +81,6 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 					},
 				},
 			},
-		}
-		for k, v := range volume.Labels {
-			pvc.Labels[k] = v
 		}
 		resources.PersistentVolumeClaims = append(resources.PersistentVolumeClaims, pvc)
 	}
@@ -115,8 +127,9 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 					Kind:       "ConfigMap",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name: configMapName,
-					Labels: map[string]string{
+					Name:   configMapName,
+					Labels: service.Labels,
+					Annotations: map[string]string{
 						"generated-from":           "kubepose",
 						"kubepose.volume.source":   projectPath,
 						"kubepose.volume.hmac-key": volumesHmacKey,
@@ -126,10 +139,6 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 					mountPath: string(content),
 				},
 			}
-			for k, v := range service.Labels {
-				configMap.Labels[k] = v
-			}
-
 			resources.ConfigMaps = append(resources.ConfigMaps, configMap)
 
 			volumeMappings[serviceVolume.Source] = VolumeMapping{
@@ -181,10 +190,9 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 				})
 
 				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:        mapping.Name,
-					ReadOnly:    serviceVolume.ReadOnly,
-					MountPath:   serviceVolume.Target,
-					SubPathExpr: serviceVolume.Volume.Subpath,
+					Name:      mapping.Name,
+					MountPath: serviceVolume.Target,
+					ReadOnly:  true,
 				})
 			} else if serviceVolume.Type == "volume" {
 				volumes = append(volumes, corev1.Volume{
