@@ -95,7 +95,7 @@ docker-compose.yml
 |---------|:------:|-------------|
 | Named Volumes | ✅ | Converts to PersistentVolumeClaims |
 | Bind Mounts | ✅ | Creates ConfigMaps for files |
-| Host Paths | ✅ | Via `x-kubepose-volume` extension |
+| Host Paths | ✅ | Via `kubepose.volume.hostPath` label |
 | Volume Labels | ✅ | Preserved in K8s resources |
 | Tmpfs | 🚧 | Planned |
 
