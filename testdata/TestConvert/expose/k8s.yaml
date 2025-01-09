@@ -19,12 +19,12 @@ spec:
         kubepose.service: web
     spec:
       containers:
-        - image: nginx
-          name: web
-          ports:
-            - containerPort: 80
-              protocol: TCP
-          resources: {}
+      - image: nginx
+        name: web
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
       restartPolicy: Always
 status: {}
 
@@ -38,16 +38,16 @@ metadata:
   name: web
 spec:
   rules:
-    - host: web.k8s.orb.local
-      http:
-        paths:
-          - backend:
-              service:
-                name: web
-                port:
-                  number: 8080
-            path: /
-            pathType: Prefix
+  - host: web.k8s.orb.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: web
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
 status:
   loadBalancer: {}
 
@@ -61,10 +61,10 @@ metadata:
   name: web
 spec:
   ports:
-    - name: "8080"
-      port: 8080
-      protocol: TCP
-      targetPort: 80
+  - name: "8080"
+    port: 8080
+    protocol: TCP
+    targetPort: 80
   selector:
     kubepose.service: web
 status:
