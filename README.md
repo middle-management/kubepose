@@ -14,7 +14,10 @@ kubepose provides a simpler alternative to [kompose](https://kompose.io/), focus
 ## Installation
 
 ```bash
-# Download latest release from https://github.com/slaskis/kubepose/releases
+# Using go install
+go install github.com/slaskis/kubepose/cmd/kubepose@latest
+
+# Or download latest release from https://github.com/slaskis/kubepose/releases
 curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m)" -o kubepose
 
 # Make it executable
