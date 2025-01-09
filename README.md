@@ -51,6 +51,10 @@ docker-compose.yaml
 docker-compose.yml
 ```
 
+## Examples
+
+The tests in the `testdata` directory are integration tests which also work as examples of various Compose configurations and their corresponding Kubernetes output. Each feature has its own directory with a `compose.yaml` and its converted Kubernetes manifests in the `TestConvert` directory. See [`testdata/simple/compose.yaml`](testdata/simple/compose.yaml) and its corresponding [`testdata/TestConvert/simple/k8s.yaml`](testdata/TestConvert/simple/k8s.yaml) as an example.
+
 ## Key Features
 
 - 🎮 **Simple CLI** - Single command with familiar `-f` and `-p` flags
