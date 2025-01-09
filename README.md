@@ -11,6 +11,19 @@ kubepose provides a streamlined alternative to [kompose](https://kompose.io/), f
 - 🎯 **Predictable Output** Generates clean, standard Kubernetes manifests
 - 🔒 **Immutable by Default** Secrets and configmaps are created immutably
 
+## Installation
+
+```bash
+# Download latest release from https://github.com/slaskis/kubepose/releases
+curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m)" -o kubepose
+
+# Make it executable
+chmod +x kubepose
+
+# Move it somewhere in your PATH
+sudo mv kubepose /usr/local/bin/
+```
+
 ## Quick Start
 
 ```bash
