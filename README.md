@@ -5,7 +5,7 @@
 
 ## Why kubepose?
 
-kubepose provides a streamlined alternative to [kompose](https://kompose.io/), focusing solely on converting Compose specifications to Kubernetes YAML files with:
+kubepose provides a simpler alternative to [kompose](https://kompose.io/), focusing solely on converting Compose specifications to Kubernetes YAML files with:
 
 - ✨ **Zero Configuration** Your compose file is the only input needed
 - 🎯 **Predictable Output** Generates clean, standard Kubernetes manifests
@@ -51,6 +51,7 @@ docker-compose.yml
 ## Key Features
 
 - 🎮 **Simple CLI** - Single command with familiar `-f` and `-p` flags
+- 🚀 **Application First** - Focus on deploying applications, not managing clusters
 - 🔄 **Standard Conversion** - Predictable mapping to Kubernetes resources
 - 📦 **No Dependencies** - Single binary with zero runtime requirements
 - 🎯 **Targeted Scope** - Focused purely on Compose to Kubernetes conversion
