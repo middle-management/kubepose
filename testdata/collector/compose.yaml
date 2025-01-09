@@ -17,5 +17,5 @@ services:
 
 volumes:
   pod-logs:
-    x-kubepose-volume:
-      hostPath: /var/log/pods
+    labels:
+      - kubepose.volume.hostPath=/var/log/pods

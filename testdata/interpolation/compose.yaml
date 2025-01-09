@@ -1,17 +1,17 @@
 services:
   web:
-    image: scratch
+    image: alpine
     command: "$$VAR_NOT_INTERPOLATED_BY_COMPOSE"
   foo:
-    image: scratch
+    image: alpine
     labels:
       foo1: "${VAR_INTERPOLATED_BY_COMPOSE}"
       foo2: "$VAR_INTERPOLATED_BY_COMPOSE"
       foo3: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-default}"
       foo4: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-${VAR_INTERPOLATED_BY_COMPOSE}}"
   bar:
-    image: ${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-}/scratch
+    image: ${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-}busybox
     labels:
       - "$VAR_INTERPOLATED_BY_COMPOSE=BAR"
   rep:
-    image: ${VAR_INTERPOLATED_BY_COMPOSE:-}/scratch
+    image: ${VAR_INTERPOLATED_BY_COMPOSE:-}busybox

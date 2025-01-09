@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    def: BAR
+    gcr.io/google-containers/: BAR
   name: bar
 spec:
   selector:
@@ -14,11 +14,11 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        def: BAR
+        gcr.io/google-containers/: BAR
         kubepose.service: bar
     spec:
       containers:
-      - image: /scratch
+      - image: busybox
         name: bar
         resources: {}
       restartPolicy: Always
@@ -30,10 +30,10 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    foo1: def
-    foo2: def
+    foo1: gcr.io/google-containers/
+    foo2: gcr.io/google-containers/
     foo3: default
-    foo4: def
+    foo4: gcr.io/google-containers/
   name: foo
 spec:
   selector:
@@ -44,14 +44,14 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        foo1: def
-        foo2: def
+        foo1: gcr.io/google-containers/
+        foo2: gcr.io/google-containers/
         foo3: default
-        foo4: def
+        foo4: gcr.io/google-containers/
         kubepose.service: foo
     spec:
       containers:
-      - image: scratch
+      - image: alpine
         name: foo
         resources: {}
       restartPolicy: Always
@@ -75,7 +75,7 @@ spec:
         kubepose.service: rep
     spec:
       containers:
-      - image: def/scratch
+      - image: gcr.io/google-containers/busybox
         name: rep
         resources: {}
       restartPolicy: Always
@@ -101,7 +101,7 @@ spec:
       containers:
       - args:
         - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
-        image: scratch
+        image: alpine
         name: web
         resources: {}
       restartPolicy: Always

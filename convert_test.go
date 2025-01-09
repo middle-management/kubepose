@@ -11,50 +11,64 @@ import (
 	"github.com/slaskis/kubepose/internal/test"
 )
 
+type TestRunFlag int
+
+const (
+	TestRunKubectlDryRun TestRunFlag = 1 << iota
+	TestRunComposeDryRun
+	TestRunComposeUp
+)
+
 func TestConvert(t *testing.T) {
 	tests := []struct {
 		Name   string
 		Env    map[string]string
-		DryRun bool
+		DryRun TestRunFlag
 		project.Options
 	}{
 		{Name: "secrets/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/secrets/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
-			"ACE_IDENTITY": "abc",
-		}, DryRun: true},
+			"KUBEPOSE_ENV_SECRET": "abc",
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeUp},
+		{Name: "secrets/k8s+external.yaml", Options: project.Options{
+			Files:    []string{"testdata/secrets/compose.yaml", "testdata/secrets/compose.external.yaml"},
+			Profiles: []string{"*"},
+		}, Env: map[string]string{
+			"KUBEPOSE_ENV_SECRET": "abc",
+		}, DryRun: TestRunKubectlDryRun},
 		{Name: "simple/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/simple/compose.yaml"},
 			Profiles: []string{"*"},
-		}, DryRun: true},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 		{Name: "volumes/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/volumes/compose.yaml"},
 			Profiles: []string{"*"},
-		}, DryRun: true},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 		{Name: "expose/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/expose/compose.yaml"},
 			Profiles: []string{"*"},
-		}, DryRun: true},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 		{Name: "interpolation/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/interpolation/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"VAR_NOT_INTERPOLATED_BY_COMPOSE": "abc",
-			"VAR_INTERPOLATED_BY_COMPOSE":     "def",
-		}, DryRun: true},
+			"VAR_INTERPOLATED_BY_COMPOSE":     "gcr.io/google-containers/",
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 		{Name: "collector/a/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/collector/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"CONFIG": "a",
-		}, DryRun: true},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 		{Name: "collector/b/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/collector/compose.yaml"},
 			Profiles: []string{"*"},
 		}, Env: map[string]string{
 			"CONFIG": "b",
-		}, DryRun: true},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -83,7 +97,7 @@ func TestConvert(t *testing.T) {
 			}
 			test.Snapshot(t, buf.Bytes())
 
-			if tt.DryRun {
+			if tt.DryRun&TestRunKubectlDryRun != 0 {
 				cmd := exec.Command("kubectl", "apply", "-f=-", "--dry-run=client")
 				cmd.Stdin = buf
 				stdout, err := cmd.CombinedOutput()
@@ -92,6 +106,35 @@ func TestConvert(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
+
+			if tt.DryRun&TestRunComposeDryRun != 0 {
+				args := []string{"compose"}
+				for _, file := range tt.Files {
+					args = append(args, "-f", file)
+				}
+				args = append(args, "up", "--dry-run")
+				cmd := exec.Command("docker", args...)
+				stdout, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Logf("docker compose output: %s", stdout)
+					t.Fatal(err)
+				}
+			}
+
+			if tt.DryRun&TestRunComposeUp != 0 {
+				args := []string{"compose"}
+				for _, file := range tt.Files {
+					args = append(args, "-f", file)
+				}
+				args = append(args, "up")
+				cmd := exec.Command("docker", args...)
+				stdout, err := cmd.CombinedOutput()
+				if err != nil {
+					t.Logf("docker compose output: %s", stdout)
+					t.Fatal(err)
+				}
+			}
+
 		})
 	}
 }

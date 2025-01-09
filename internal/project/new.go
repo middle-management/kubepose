@@ -6,7 +6,6 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/slaskis/kubepose"
 )
 
 type Options struct {
@@ -22,7 +21,6 @@ func New(opts Options) (*types.Project, error) {
 		cli.WithDefaultConfigPath,
 		cli.WithInterpolation(true),
 		cli.WithProfiles(opts.Profiles),
-		cli.WithExtension("x-kubepose-volume", kubepose.VolumeExtension{}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create compose options: %w", err)

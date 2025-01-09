@@ -29,16 +29,6 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 	volumeMappings := make(map[string]VolumeMapping)
 
 	for name, volume := range project.Volumes {
-		ext := VolumeExtension{}
-		if exists, err := volume.Extensions.Get("x-kubepose-volume", &ext); err == nil && exists && ext.HostPath != "" {
-			volumeMappings[name] = VolumeMapping{
-				Name:       name,
-				IsHostPath: true,
-				HostPath:   ext.HostPath,
-			}
-			continue
-		}
-
 		if hostPath, exists := volume.Labels["kubepose.volume.hostPath"]; exists {
 			volumeMappings[name] = VolumeMapping{
 				Name:       name,
