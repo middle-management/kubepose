@@ -2,6 +2,6 @@ services:
   web:
     image: nginx
     annotations:
-      kompose.service.expose: web.k8s.orb.local
+      kubepose.service.expose: web.k8s.orb.local
     ports:
       - "8080:80"

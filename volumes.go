@@ -59,14 +59,14 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				},
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				// TODO get StorageClassName from label "kompose.volume.storage-class-name"?
+				// TODO get StorageClassName from label "kubepose.volume.storage-class-name"?
 
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
 				Resources: corev1.VolumeResourceRequirements{
 					Requests: corev1.ResourceList{
-						// TODO get from label "kompose.volume.size"?
+						// TODO get from label "kubepose.volume.size"?
 						corev1.ResourceStorage: resource.MustParse("10Gi"),
 					},
 				},

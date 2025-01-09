@@ -77,7 +77,7 @@ func Convert(project *types.Project) (*Resources, error) {
 			resources.Services = append(resources.Services, createService(service))
 
 			// Create Ingress if exposed
-			if _, ok := service.Annotations["kompose.service.expose"]; ok {
+			if _, ok := service.Annotations["kubepose.service.expose"]; ok {
 				resources.Ingresses = append(resources.Ingresses, createIngress(service))
 			}
 		}
@@ -313,13 +313,13 @@ func createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 	var ingressClassName *string
 
 	// Check if a specific ingress class is specified in annotations
-	if class, ok := service.Annotations["kompose.service.expose.ingress-class-name"]; ok {
+	if class, ok := service.Annotations["kubepose.service.expose.ingress-class-name"]; ok {
 		ingressClassName = &class
 	}
 
 	// Get host from labels or annotations
 	host := service.Name // Default host
-	if h, ok := service.Annotations["kompose.service.expose"]; ok && h != "true" {
+	if h, ok := service.Annotations["kubepose.service.expose"]; ok && h != "true" {
 		host = h
 	}
 
