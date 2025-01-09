@@ -18,7 +18,7 @@ spec:
         kubepose.service: bar
     spec:
       containers:
-      - image: scratch
+      - image: /scratch
         name: bar
         resources: {}
       restartPolicy: Always
@@ -53,6 +53,30 @@ spec:
       containers:
       - image: scratch
         name: foo
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: rep
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: rep
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubepose.service: rep
+    spec:
+      containers:
+      - image: def/scratch
+        name: rep
         resources: {}
       restartPolicy: Always
 status: {}

@@ -10,6 +10,8 @@ services:
       foo3: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-default}"
       foo4: "${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-${VAR_INTERPOLATED_BY_COMPOSE}}"
   bar:
-    image: scratch
+    image: ${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-}/scratch
     labels:
       - "$VAR_INTERPOLATED_BY_COMPOSE=BAR"
+  rep:
+    image: ${VAR_INTERPOLATED_BY_COMPOSE:-}/scratch
