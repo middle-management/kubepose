@@ -52,7 +52,7 @@ func Convert(project *types.Project) (*Resources, error) {
 			resources.Pods = append(resources.Pods, pod)
 			continue
 		}
-		// TODO InitContainer, LivenessProbe, ReadinessProbe, ImagePullSecrets, SecurityContext
+		// TODO InitContainer, ImagePullSecrets, SecurityContext
 
 		deployMode := "replicated"
 		if service.Deploy != nil {
@@ -426,76 +426,76 @@ func getImagePullPolicy(service types.ServiceConfig) corev1.PullPolicy {
 }
 
 func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *corev1.Probe) {
-    if service.HealthCheck == nil || service.HealthCheck.Disable {
-        return nil, nil
-    }
+	if service.HealthCheck == nil || service.HealthCheck.Disable {
+		return nil, nil
+	}
 
-    var probe *corev1.Probe
+	var probe *corev1.Probe
 
-    // Convert test command
-    if len(service.HealthCheck.Test) > 0 {
-        // Handle different formats of test
-        var command []string
-        switch service.HealthCheck.Test[0] {
-        case "CMD", "CMD-SHELL":
-            command = service.HealthCheck.Test[1:]
-        default:
-            command = service.HealthCheck.Test
-        }
+	// Convert test command
+	if len(service.HealthCheck.Test) > 0 {
+		// Handle different formats of test
+		var command []string
+		switch service.HealthCheck.Test[0] {
+		case "CMD", "CMD-SHELL":
+			command = service.HealthCheck.Test[1:]
+		default:
+			command = service.HealthCheck.Test
+		}
 
-        probe = &corev1.Probe{
-            ProbeHandler: corev1.ProbeHandler{
-                Exec: &corev1.ExecAction{
-                    Command: command,
-                },
-            },
-        }
-    }
+		probe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: command,
+				},
+			},
+		}
+	}
 
-    if probe != nil {
-        // Convert timing parameters
-        if service.HealthCheck.Interval != nil {
-            probe.PeriodSeconds = int32(time.Duration(*service.HealthCheck.Interval).Seconds())
-        }
-        if service.HealthCheck.Timeout != nil {
-            probe.TimeoutSeconds = int32(time.Duration(*service.HealthCheck.Timeout).Seconds())
-        }
-        if service.HealthCheck.StartPeriod != nil {
-            probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
-        }
-        if service.HealthCheck.Retries != nil {
-            probe.FailureThreshold = int32(*service.HealthCheck.Retries)
-        }
+	if probe != nil {
+		// Convert timing parameters
+		if service.HealthCheck.Interval != nil {
+			probe.PeriodSeconds = int32(time.Duration(*service.HealthCheck.Interval).Seconds())
+		}
+		if service.HealthCheck.Timeout != nil {
+			probe.TimeoutSeconds = int32(time.Duration(*service.HealthCheck.Timeout).Seconds())
+		}
+		if service.HealthCheck.StartPeriod != nil {
+			probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
+		}
+		if service.HealthCheck.Retries != nil {
+			probe.FailureThreshold = int32(*service.HealthCheck.Retries)
+		}
 
-        // Use the same probe for both liveness and readiness
-        liveness = probe.DeepCopy()
-        readiness = probe.DeepCopy()
-    }
+		// Use the same probe for both liveness and readiness
+		liveness = probe.DeepCopy()
+		readiness = probe.DeepCopy()
+	}
 
-    // Check for HTTP-specific health check annotations
-    if path, ok := service.Annotations["kubepose.healthcheck.http.path"]; ok {
-        httpProbe := &corev1.Probe{
-            ProbeHandler: corev1.ProbeHandler{
-                HTTPGet: &corev1.HTTPGetAction{
-                    Path: path,
-                    Port: intstr.FromInt(getFirstPort(service)),
-                },
-            },
-        }
+	// Check for HTTP-specific health check annotations
+	if path, ok := service.Annotations["kubepose.healthcheck.http.path"]; ok {
+		httpProbe := &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: path,
+					Port: intstr.FromInt(getFirstPort(service)),
+				},
+			},
+		}
 
-        // Copy timing parameters if they exist
-        if probe != nil {
-            httpProbe.PeriodSeconds = probe.PeriodSeconds
-            httpProbe.TimeoutSeconds = probe.TimeoutSeconds
-            httpProbe.InitialDelaySeconds = probe.InitialDelaySeconds
-            httpProbe.FailureThreshold = probe.FailureThreshold
-        }
+		// Copy timing parameters if they exist
+		if probe != nil {
+			httpProbe.PeriodSeconds = probe.PeriodSeconds
+			httpProbe.TimeoutSeconds = probe.TimeoutSeconds
+			httpProbe.InitialDelaySeconds = probe.InitialDelaySeconds
+			httpProbe.FailureThreshold = probe.FailureThreshold
+		}
 
-        liveness = httpProbe
-        readiness = httpProbe.DeepCopy()
-    }
+		liveness = httpProbe
+		readiness = httpProbe.DeepCopy()
+	}
 
-    return liveness, readiness
+	return liveness, readiness
 }
 
 func getFirstPort(service types.ServiceConfig) int {
