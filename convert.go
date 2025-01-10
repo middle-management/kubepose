@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	appsv1 "k8s.io/api/apps/v1"
@@ -102,6 +103,8 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 }
 
 func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
+	livenessProbe, readinessProbe := getProbes(service)
+
 	return corev1.PodSpec{
 		RestartPolicy: getRestartPolicy(service),
 		Containers: []corev1.Container{
@@ -117,6 +120,8 @@ func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 				Env:             convertEnvironment(service.Environment),
 				Resources:       getResourceRequirements(service),
 				ImagePullPolicy: getImagePullPolicy(service),
+				LivenessProbe:   livenessProbe,
+				ReadinessProbe:  readinessProbe,
 			},
 		},
 	}
@@ -418,4 +423,87 @@ func getImagePullPolicy(service types.ServiceConfig) corev1.PullPolicy {
 	default:
 		return corev1.PullIfNotPresent
 	}
+}
+
+func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *corev1.Probe) {
+    if service.HealthCheck == nil || service.HealthCheck.Disable {
+        return nil, nil
+    }
+
+    var probe *corev1.Probe
+
+    // Convert test command
+    if len(service.HealthCheck.Test) > 0 {
+        // Handle different formats of test
+        var command []string
+        switch service.HealthCheck.Test[0] {
+        case "CMD", "CMD-SHELL":
+            command = service.HealthCheck.Test[1:]
+        default:
+            command = service.HealthCheck.Test
+        }
+
+        probe = &corev1.Probe{
+            ProbeHandler: corev1.ProbeHandler{
+                Exec: &corev1.ExecAction{
+                    Command: command,
+                },
+            },
+        }
+    }
+
+    if probe != nil {
+        // Convert timing parameters
+        if service.HealthCheck.Interval != nil {
+            probe.PeriodSeconds = int32(time.Duration(*service.HealthCheck.Interval).Seconds())
+        }
+        if service.HealthCheck.Timeout != nil {
+            probe.TimeoutSeconds = int32(time.Duration(*service.HealthCheck.Timeout).Seconds())
+        }
+        if service.HealthCheck.StartPeriod != nil {
+            probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
+        }
+        if service.HealthCheck.Retries != nil {
+            probe.FailureThreshold = int32(*service.HealthCheck.Retries)
+        }
+
+        // Use the same probe for both liveness and readiness
+        liveness = probe.DeepCopy()
+        readiness = probe.DeepCopy()
+    }
+
+    // Check for HTTP-specific health check annotations
+    if path, ok := service.Annotations["kubepose.healthcheck.http.path"]; ok {
+        httpProbe := &corev1.Probe{
+            ProbeHandler: corev1.ProbeHandler{
+                HTTPGet: &corev1.HTTPGetAction{
+                    Path: path,
+                    Port: intstr.FromInt(getFirstPort(service)),
+                },
+            },
+        }
+
+        // Copy timing parameters if they exist
+        if probe != nil {
+            httpProbe.PeriodSeconds = probe.PeriodSeconds
+            httpProbe.TimeoutSeconds = probe.TimeoutSeconds
+            httpProbe.InitialDelaySeconds = probe.InitialDelaySeconds
+            httpProbe.FailureThreshold = probe.FailureThreshold
+        }
+
+        liveness = httpProbe
+        readiness = httpProbe.DeepCopy()
+    }
+
+    return liveness, readiness
+}
+
+func getFirstPort(service types.ServiceConfig) int {
+	if len(service.Ports) > 0 {
+		if published, err := strconv.Atoi(service.Ports[0].Published); err == nil {
+			return published
+		}
+		return int(service.Ports[0].Target)
+	}
+	return 80 // default port if none specified
 }
