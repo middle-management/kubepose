@@ -49,6 +49,7 @@ spec:
         - name: K8S_NAMESPACE
           value: default
         image: otel/opentelemetry-collector-contrib:0.116.1
+        imagePullPolicy: IfNotPresent
         name: collector
         ports:
         - containerPort: 4317

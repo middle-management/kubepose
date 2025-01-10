@@ -16,6 +16,7 @@ spec:
     spec:
       containers:
       - image: redis
+        imagePullPolicy: IfNotPresent
         name: redis-leader
         ports:
         - containerPort: 6379
@@ -48,6 +49,7 @@ spec:
         - redis-leader
         - "6379"
         image: redis
+        imagePullPolicy: IfNotPresent
         name: redis-replica
         ports:
         - containerPort: 6379
@@ -75,6 +77,7 @@ spec:
     spec:
       containers:
       - image: nginx
+        imagePullPolicy: IfNotPresent
         name: web
         ports:
         - containerPort: 8080

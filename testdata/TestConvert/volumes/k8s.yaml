@@ -58,10 +58,25 @@ spec:
         - name: POSTGRES_USER
           value: postgres
         image: postgres
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
+          failureThreshold: 120
+          periodSeconds: 3
+          timeoutSeconds: 10
         name: postgres
         ports:
         - containerPort: 5432
           protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
+          failureThreshold: 120
+          periodSeconds: 3
+          timeoutSeconds: 10
         resources: {}
         volumeMounts:
         - mountPath: /var/lib/postgresql/data

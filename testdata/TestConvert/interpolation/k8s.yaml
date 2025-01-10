@@ -19,6 +19,7 @@ spec:
     spec:
       containers:
       - image: busybox
+        imagePullPolicy: IfNotPresent
         name: bar
         resources: {}
       restartPolicy: Always
@@ -52,6 +53,7 @@ spec:
     spec:
       containers:
       - image: alpine
+        imagePullPolicy: IfNotPresent
         name: foo
         resources: {}
       restartPolicy: Always
@@ -76,6 +78,7 @@ spec:
     spec:
       containers:
       - image: gcr.io/google-containers/busybox
+        imagePullPolicy: IfNotPresent
         name: rep
         resources: {}
       restartPolicy: Always
@@ -102,6 +105,7 @@ spec:
       - args:
         - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
         image: alpine
+        imagePullPolicy: IfNotPresent
         name: web
         resources: {}
       restartPolicy: Always
