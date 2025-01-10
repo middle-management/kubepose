@@ -106,16 +106,17 @@ func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 		RestartPolicy: getRestartPolicy(service),
 		Containers: []corev1.Container{
 			{
-				Name:       service.Name,
-				Image:      service.Image,
-				Command:    service.Entrypoint,
-				WorkingDir: service.WorkingDir,
-				Stdin:      service.StdinOpen,
-				TTY:        service.Tty,
-				Args:       escapeEnvs(service.Command),
-				Ports:      convertPorts(service.Ports),
-				Env:        convertEnvironment(service.Environment),
-				Resources:  getResourceRequirements(service),
+				Name:            service.Name,
+				Image:           service.Image,
+				Command:         service.Entrypoint,
+				WorkingDir:      service.WorkingDir,
+				Stdin:           service.StdinOpen,
+				TTY:             service.Tty,
+				Args:            escapeEnvs(service.Command),
+				Ports:           convertPorts(service.Ports),
+				Env:             convertEnvironment(service.Environment),
+				Resources:       getResourceRequirements(service),
+				ImagePullPolicy: getImagePullPolicy(service),
 			},
 		},
 	}
@@ -399,5 +400,22 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 	default:
 		// compose default is "no" but that is not valid in k8s deployments etc
 		return corev1.RestartPolicyAlways
+	}
+}
+
+func getImagePullPolicy(service types.ServiceConfig) corev1.PullPolicy {
+	if service.PullPolicy == "" {
+		return corev1.PullIfNotPresent // default behavior
+	}
+
+	switch strings.ToLower(service.PullPolicy) {
+	case "always":
+		return corev1.PullAlways
+	case "never":
+		return corev1.PullNever
+	case "if_not_present", "missing":
+		return corev1.PullIfNotPresent
+	default:
+		return corev1.PullIfNotPresent
 	}
 }
