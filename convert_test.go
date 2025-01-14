@@ -50,6 +50,12 @@ func TestConvert(t *testing.T) {
 			Files:    []string{"testdata/group/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
+		{Name: "configs/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/configs/compose.yaml"},
+			Profiles: []string{"*"},
+		}, Env: map[string]string{
+			"CONFIG_VAR": "abc",
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeUp},
 		{Name: "expose/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/expose/compose.yaml"},
 			Profiles: []string{"*"},

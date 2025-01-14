@@ -26,6 +26,11 @@ func Convert(project *types.Project) (*Resources, error) {
 		return nil, fmt.Errorf("error processing secrets: %w", err)
 	}
 
+	configMappings, err := processConfigs(project, resources) // Add this line
+	if err != nil {
+		return nil, fmt.Errorf("error processing configs: %w", err)
+	}
+
 	volumeMappings, err := processVolumes(project, resources)
 	if err != nil {
 		return nil, fmt.Errorf("error processing volumes: %w", err)
@@ -39,6 +44,7 @@ func Convert(project *types.Project) (*Resources, error) {
 			pod := createPod(service)
 			pod.Spec.Containers = []corev1.Container{createContainer(service)}
 			updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
+			updatePodSpecWithConfigs(&pod.Spec, service, configMappings)
 			updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources, project)
 			resources.Pods = append(resources.Pods, pod)
 			continue
@@ -74,12 +80,14 @@ func Convert(project *types.Project) (*Resources, error) {
 			ds := createDaemonSet(primary)
 			addContainersToSpec(&ds.Spec.Template.Spec, mainServices, initServices)
 			updatePodSpecWithSecrets(&ds.Spec.Template.Spec, primary, secretMappings)
+			updatePodSpecWithConfigs(&ds.Spec.Template.Spec, primary, configMappings)
 			updatePodSpecWithVolumes(&ds.Spec.Template.Spec, primary, volumeMappings, resources, project)
 			resources.DaemonSets = append(resources.DaemonSets, ds)
 		} else {
 			deploy := createDeployment(primary)
 			addContainersToSpec(&deploy.Spec.Template.Spec, mainServices, initServices)
 			updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, primary, secretMappings)
+			updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, primary, configMappings)
 			updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, primary, volumeMappings, resources, project)
 			resources.Deployments = append(resources.Deployments, deploy)
 		}

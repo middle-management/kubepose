@@ -1,0 +1,21 @@
+configs:
+  my_config:
+    content: |
+      {
+        "key": "value",
+        "hello": "world"
+      }
+  file_config:
+    file: ./config.json
+  env_config:
+    environment: CONFIG_VAR
+
+services:
+  app:
+    image: alpine
+    command: ls -la
+    configs:
+      - source: my_config
+        target: /app/config.json
+      - file_config
+      - source: env_config

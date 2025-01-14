@@ -1,0 +1,102 @@
+apiVersion: v1
+data:
+  content: abc
+immutable: true
+kind: ConfigMap
+metadata:
+  annotations:
+    generated-from: kubepose
+    kubepose.configs.hmac-key: kubepose.configs.v1
+    kubepose.original-name: env_config
+  creationTimestamp: null
+  name: env_config-d5a42339
+
+---
+apiVersion: v1
+data:
+  config.json: |
+    {}
+immutable: true
+kind: ConfigMap
+metadata:
+  annotations:
+    generated-from: kubepose
+    kubepose.configs.hmac-key: kubepose.configs.v1
+    kubepose.original-name: file_config
+  creationTimestamp: null
+  name: file_config-a408ff0b
+
+---
+apiVersion: v1
+data:
+  content: |
+    {
+      "key": "value",
+      "hello": "world"
+    }
+immutable: true
+kind: ConfigMap
+metadata:
+  annotations:
+    generated-from: kubepose
+    kubepose.configs.hmac-key: kubepose.configs.v1
+    kubepose.original-name: my_config
+  creationTimestamp: null
+  name: my_config-482442e0
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: app
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: app
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubepose.service: app
+    spec:
+      containers:
+      - args:
+        - ls
+        - -la
+        image: alpine
+        imagePullPolicy: IfNotPresent
+        name: app
+        resources: {}
+        volumeMounts:
+        - mountPath: /app/config.json
+          name: my_config
+          readOnly: true
+        - mountPath: /file_config
+          name: file_config
+          readOnly: true
+        - mountPath: /env_config
+          name: env_config
+          readOnly: true
+      restartPolicy: Always
+      volumes:
+      - configMap:
+          items:
+          - key: content
+            path: config.json
+          name: my_config-482442e0
+        name: my_config
+      - configMap:
+          items:
+          - key: content
+            path: file_config
+          name: file_config-a408ff0b
+        name: file_config
+      - configMap:
+          items:
+          - key: content
+            path: env_config
+          name: env_config-d5a42339
+        name: env_config
+status: {}
