@@ -1,0 +1,31 @@
+services:
+  # Regular init container
+  db-setup:
+    image: alpine
+    command: echo migrate
+    restart: "on-failure"
+    labels:
+      kubepose.service.group: "myapp"
+      kubepose.container.type: "init"
+
+  # Sidecar container (init container with Always restart policy)
+  logshipper:
+    image: fluentd
+    restart: always # This makes it a sidecar
+    labels:
+      kubepose.service.group: "myapp"
+      kubepose.container.type: "init"
+
+  # Main app container
+  web:
+    image: nginx
+    labels:
+      kubepose.service.group: "myapp"
+      # container.type defaults to "app"
+
+  # Another app container
+  api:
+    image: nginx
+    labels:
+      kubepose.service.group: "myapp"
+      kubepose.container.type: "app" # optional, this is default

@@ -19,72 +19,126 @@ import (
 )
 
 func Convert(project *types.Project) (*Resources, error) {
-	// Initialize K8s resources
 	resources := &Resources{}
 
-	// Process secrets first
 	secretMappings, err := processSecrets(project, resources)
 	if err != nil {
 		return nil, fmt.Errorf("error processing secrets: %w", err)
 	}
 
-	// Process volumes
 	volumeMappings, err := processVolumes(project, resources)
 	if err != nil {
 		return nil, fmt.Errorf("error processing volumes: %w", err)
 	}
 
-	// Convert each service to Kubernetes resources
+	// Group services by kubepose.service.group
+	groups := make(map[string][]types.ServiceConfig)
 	for _, service := range project.Services {
-		// TODO StatefulSet, CronJob
-
-		restartPolicy := getRestartPolicy(service)
-		if restartPolicy != corev1.RestartPolicyAlways {
-			// create pod for on-failure/never restart policies
+		// Handle standalone pods (non-Always restart policy)
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways {
 			pod := createPod(service)
-
-			// Update pod with secrets
+			pod.Spec.Containers = []corev1.Container{createContainer(service)}
 			updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
-
-			// Update pod with volumes
 			updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources, project)
-
 			resources.Pods = append(resources.Pods, pod)
 			continue
 		}
-		// TODO InitContainer, ImagePullSecrets, SecurityContext
 
-		deployMode := "replicated"
-		if service.Deploy != nil {
-			deployMode = service.Deploy.Mode
+		groupName := service.Labels[ServiceGroupLabelKey]
+		if groupName == "" {
+			groupName = service.Name // Use service name as group if not specified
 		}
-		switch deployMode {
-		case "global":
-			daemonSet := createDaemonSet(service)
-			updatePodSpecWithSecrets(&daemonSet.Spec.Template.Spec, service, secretMappings)
-			updatePodSpecWithVolumes(&daemonSet.Spec.Template.Spec, service, volumeMappings, resources, project)
-			resources.DaemonSets = append(resources.DaemonSets, daemonSet)
-		case "replicated":
-			deployment := createDeployment(service)
-			updatePodSpecWithSecrets(&deployment.Spec.Template.Spec, service, secretMappings)
-			updatePodSpecWithVolumes(&deployment.Spec.Template.Spec, service, volumeMappings, resources, project)
-			resources.Deployments = append(resources.Deployments, deployment)
-		default:
-			return nil, fmt.Errorf("unsupported deploy mode: %s", deployMode)
+		groups[groupName] = append(groups[groupName], service)
+	}
+
+	// Process each group
+	for _, services := range groups {
+		// Find main services (not init)
+		var mainServices, initServices []types.ServiceConfig
+		for _, svc := range services {
+			if svc.Labels[ContainerTypeLabelKey] == "init" {
+				initServices = append(initServices, svc)
+			} else {
+				mainServices = append(mainServices, svc)
+			}
 		}
 
-		// Create Service if ports are defined
-		if len(service.Ports) > 0 {
-			resources.Services = append(resources.Services, createService(service))
+		if len(mainServices) == 0 {
+			continue
+		}
 
-			// Create Ingress if exposed
-			if _, ok := service.Annotations["kubepose.service.expose"]; ok {
-				resources.Ingresses = append(resources.Ingresses, createIngress(service))
+		// Use first main service for deployment/daemonset
+		primary := mainServices[0]
+
+		if primary.Deploy != nil && primary.Deploy.Mode == "global" {
+			ds := createDaemonSet(primary)
+			addContainersToSpec(&ds.Spec.Template.Spec, mainServices, initServices)
+			updatePodSpecWithSecrets(&ds.Spec.Template.Spec, primary, secretMappings)
+			updatePodSpecWithVolumes(&ds.Spec.Template.Spec, primary, volumeMappings, resources, project)
+			resources.DaemonSets = append(resources.DaemonSets, ds)
+		} else {
+			deploy := createDeployment(primary)
+			addContainersToSpec(&deploy.Spec.Template.Spec, mainServices, initServices)
+			updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, primary, secretMappings)
+			updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, primary, volumeMappings, resources, project)
+			resources.Deployments = append(resources.Deployments, deploy)
+		}
+
+		// Create services for containers with ports
+		for _, svc := range mainServices {
+			if len(svc.Ports) > 0 {
+				resources.Services = append(resources.Services, createService(svc))
+				if _, ok := svc.Annotations["kubepose.service.expose"]; ok {
+					resources.Ingresses = append(resources.Ingresses, createIngress(svc))
+				}
 			}
 		}
 	}
 
 	return resources, nil
+}
+
+const (
+	ServiceSelectorLabelKey = "kubepose.service"
+	ServiceGroupLabelKey    = "kubepose.service.group"
+	ContainerTypeLabelKey   = "kubepose.container.type"
+)
+
+func addContainersToSpec(podSpec *corev1.PodSpec, mainServices, initServices []types.ServiceConfig) {
+	for _, svc := range initServices {
+		podSpec.InitContainers = append(podSpec.InitContainers, createContainer(svc))
+	}
+	for _, svc := range mainServices {
+		podSpec.Containers = append(podSpec.Containers, createContainer(svc))
+	}
+}
+
+func createContainer(service types.ServiceConfig) corev1.Container {
+	livenessProbe, readinessProbe := getProbes(service)
+
+	// support for init containers with always restart policy
+	// (also known as side car containers)
+	// https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
+	var containerRestartPolicy *corev1.ContainerRestartPolicy
+	if service.Labels[ContainerTypeLabelKey] == "init" && getRestartPolicy(service) == corev1.RestartPolicyAlways {
+		containerRestartPolicy = ptr.To(corev1.ContainerRestartPolicyAlways)
+	}
+	return corev1.Container{
+		Name:            service.Name,
+		Image:           service.Image,
+		Command:         service.Entrypoint,
+		WorkingDir:      service.WorkingDir,
+		Stdin:           service.StdinOpen,
+		TTY:             service.Tty,
+		Args:            escapeEnvs(service.Command),
+		Ports:           convertPorts(service.Ports),
+		Env:             convertEnvironment(service.Environment),
+		Resources:       getResourceRequirements(service),
+		ImagePullPolicy: getImagePullPolicy(service),
+		LivenessProbe:   livenessProbe,
+		ReadinessProbe:  readinessProbe,
+		RestartPolicy:   containerRestartPolicy,
+	}
 }
 
 func createPod(service types.ServiceConfig) *corev1.Pod {
@@ -98,31 +152,8 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 			Annotations: service.Annotations,
 			Labels:      service.Labels,
 		},
-		Spec: createPodSpec(service),
-	}
-}
-
-func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
-	livenessProbe, readinessProbe := getProbes(service)
-
-	return corev1.PodSpec{
-		RestartPolicy: getRestartPolicy(service),
-		Containers: []corev1.Container{
-			{
-				Name:            service.Name,
-				Image:           service.Image,
-				Command:         service.Entrypoint,
-				WorkingDir:      service.WorkingDir,
-				Stdin:           service.StdinOpen,
-				TTY:             service.Tty,
-				Args:            escapeEnvs(service.Command),
-				Ports:           convertPorts(service.Ports),
-				Env:             convertEnvironment(service.Environment),
-				Resources:       getResourceRequirements(service),
-				ImagePullPolicy: getImagePullPolicy(service),
-				LivenessProbe:   livenessProbe,
-				ReadinessProbe:  readinessProbe,
-			},
+		Spec: corev1.PodSpec{
+			RestartPolicy: getRestartPolicy(service),
 		},
 	}
 }
@@ -151,7 +182,9 @@ func createDaemonSet(service types.ServiceConfig) *appsv1.DaemonSet {
 						ServiceSelectorLabelKey: service.Name,
 					}),
 				},
-				Spec: createPodSpec(service),
+				Spec: corev1.PodSpec{
+					RestartPolicy: getRestartPolicy(service),
+				},
 			},
 		},
 	}
@@ -187,7 +220,9 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 						ServiceSelectorLabelKey: service.Name,
 					}),
 				},
-				Spec: createPodSpec(service),
+				Spec: corev1.PodSpec{
+					RestartPolicy: getRestartPolicy(service),
+				},
 			},
 		},
 	}
@@ -212,8 +247,6 @@ func escapeEnvs(input []string) []string {
 	}
 	return args
 }
-
-const ServiceSelectorLabelKey = "kubepose.service"
 
 func createService(service types.ServiceConfig) *corev1.Service {
 	// TODO support LoadBalancer, NodePort, ExternalName, ClusterIP
@@ -402,10 +435,15 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 		return corev1.RestartPolicyNever
 	case "unless-stopped", "on-failure":
 		return corev1.RestartPolicyOnFailure
-	default:
-		// compose default is "no" but that is not valid in k8s deployments etc
-		return corev1.RestartPolicyAlways
 	}
+
+	if service.Labels[ContainerTypeLabelKey] == "init" {
+		// init containers default to on-failure policy
+		return corev1.RestartPolicyOnFailure
+	}
+
+	// compose default is "no" but that is not valid in k8s deployments etc
+	return corev1.RestartPolicyAlways
 }
 
 func getImagePullPolicy(service types.ServiceConfig) corev1.PullPolicy {

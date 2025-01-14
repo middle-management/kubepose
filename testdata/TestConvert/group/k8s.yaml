@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    kubepose.service.group: myapp
+  name: web
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: web
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubepose.service: web
+        kubepose.service.group: myapp
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: web
+        resources: {}
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: api
+        resources: {}
+      initContainers:
+      - image: fluentd
+        imagePullPolicy: IfNotPresent
+        name: logshipper
+        resources: {}
+        restartPolicy: Always
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    kubepose.container.type: init
+    kubepose.service.group: myapp
+  name: db-setup
+spec:
+  containers:
+  - args:
+    - echo
+    - migrate
+    image: alpine
+    imagePullPolicy: IfNotPresent
+    name: db-setup
+    resources: {}
+  restartPolicy: OnFailure
+status: {}
