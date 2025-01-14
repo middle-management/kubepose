@@ -75,8 +75,16 @@ func Convert(project *types.Project) (*Resources, error) {
 		groups[groupName] = append(groups[groupName], service)
 	}
 
-	// Process each group
-	for _, services := range groups {
+	var groupNames []string
+	for groupName := range groups {
+		groupNames = append(groupNames, groupName)
+	}
+	sort.Strings(groupNames)
+
+	// Process groups in sorted order
+	for _, groupName := range groupNames {
+		services := groups[groupName]
+
 		// Find main services (not init)
 		var mainServices, initServices []types.ServiceConfig
 		for _, svc := range services {
