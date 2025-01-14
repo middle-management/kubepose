@@ -30,39 +30,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   creationTimestamp: null
-  name: redis-replica
-spec:
-  selector:
-    matchLabels:
-      kubepose.service: redis-replica
-  strategy: {}
-  template:
-    metadata:
-      creationTimestamp: null
-      labels:
-        kubepose.service: redis-replica
-    spec:
-      containers:
-      - args:
-        - redis-server
-        - --replicaof
-        - redis-leader
-        - "6379"
-        image: redis
-        imagePullPolicy: IfNotPresent
-        name: redis-replica
-        ports:
-        - containerPort: 6379
-          protocol: TCP
-        resources: {}
-      restartPolicy: Always
-status: {}
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  creationTimestamp: null
   name: web
 spec:
   selector:
@@ -100,23 +67,6 @@ spec:
     targetPort: 6379
   selector:
     kubepose.service: redis-leader
-status:
-  loadBalancer: {}
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  creationTimestamp: null
-  name: redis-replica
-spec:
-  ports:
-  - name: "6379"
-    port: 6379
-    protocol: TCP
-    targetPort: 6379
-  selector:
-    kubepose.service: redis-replica
 status:
   loadBalancer: {}
 

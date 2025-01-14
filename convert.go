@@ -18,6 +18,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const (
+	ServiceSelectorLabelKey         = "kubepose.service"
+	ServiceGroupLabelKey            = "kubepose.service.group"
+	ServiceAccountNameAnnotationKey = "kubepose.service.serviceAccountName"
+	ServiceIgnoreAnnotationKey      = "kubepose.service.ignore"
+	ContainerTypeLabelKey           = "kubepose.container.type"
+)
+
 func Convert(project *types.Project) (*Resources, error) {
 	resources := &Resources{}
 
@@ -39,6 +47,16 @@ func Convert(project *types.Project) (*Resources, error) {
 	// Group services by kubepose.service.group
 	groups := make(map[string][]types.ServiceConfig)
 	for _, service := range project.Services {
+		// Skip services with annotation
+		if value, ok := service.Annotations[ServiceIgnoreAnnotationKey]; ok {
+			ignored, err := strconv.ParseBool(value)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for %s annotation: %w", ServiceIgnoreAnnotationKey, err)
+			} else if ignored {
+				continue
+			}
+		}
+
 		// Handle standalone pods (non-Always restart policy)
 		if getRestartPolicy(service) != corev1.RestartPolicyAlways {
 			pod := createPod(service)
@@ -105,13 +123,6 @@ func Convert(project *types.Project) (*Resources, error) {
 
 	return resources, nil
 }
-
-const (
-	ServiceSelectorLabelKey         = "kubepose.service"
-	ServiceGroupLabelKey            = "kubepose.service.group"
-	ServiceAccountNameAnnotationKey = "kubepose.service.serviceAccountName"
-	ContainerTypeLabelKey           = "kubepose.container.type"
-)
 
 func addContainersToSpec(podSpec *corev1.PodSpec, mainServices, initServices []types.ServiceConfig) {
 	for _, svc := range initServices {

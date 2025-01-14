@@ -11,6 +11,8 @@ services:
     ports:
       - "6379"
     command: redis-server --replicaof redis-leader 6379
+    annotations:
+      kubepose.service.ignore: "true"
 
   web:
     container_name: web

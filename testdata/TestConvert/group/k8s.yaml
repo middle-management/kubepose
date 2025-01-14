@@ -3,31 +3,39 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    kubepose.container.type: app
     kubepose.service.group: myapp
-  name: api
+  name: web
 spec:
   selector:
     matchLabels:
-      kubepose.service: api
+      kubepose.service: web
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubepose.container.type: app
-        kubepose.service: api
+        kubepose.service: web
         kubepose.service.group: myapp
     spec:
       containers:
       - image: nginx
         imagePullPolicy: IfNotPresent
-        name: api
-        resources: {}
-      - image: nginx
-        imagePullPolicy: IfNotPresent
         name: web
         resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: api
+        resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
       initContainers:
       - image: fluentd
         imagePullPolicy: IfNotPresent
@@ -35,6 +43,10 @@ spec:
         resources: {}
         restartPolicy: Always
       restartPolicy: Always
+      volumes:
+      - name: secret
+        secret:
+          secretName: secret-16e40588
 status: {}
 
 ---
