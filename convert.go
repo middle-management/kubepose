@@ -99,9 +99,10 @@ func Convert(project *types.Project) (*Resources, error) {
 }
 
 const (
-	ServiceSelectorLabelKey = "kubepose.service"
-	ServiceGroupLabelKey    = "kubepose.service.group"
-	ContainerTypeLabelKey   = "kubepose.container.type"
+	ServiceSelectorLabelKey         = "kubepose.service"
+	ServiceGroupLabelKey            = "kubepose.service.group"
+	ServiceAccountNameAnnotationKey = "kubepose.service.serviceAccountName"
+	ContainerTypeLabelKey           = "kubepose.container.type"
 )
 
 func addContainersToSpec(podSpec *corev1.PodSpec, mainServices, initServices []types.ServiceConfig) {
@@ -153,7 +154,8 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 			Labels:      service.Labels,
 		},
 		Spec: corev1.PodSpec{
-			RestartPolicy: getRestartPolicy(service),
+			RestartPolicy:      getRestartPolicy(service),
+			ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
 		},
 	}
 }
@@ -183,7 +185,8 @@ func createDaemonSet(service types.ServiceConfig) *appsv1.DaemonSet {
 					}),
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: getRestartPolicy(service),
+					RestartPolicy:      getRestartPolicy(service),
+					ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
 				},
 			},
 		},
@@ -221,7 +224,8 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 					}),
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: getRestartPolicy(service),
+					RestartPolicy:      getRestartPolicy(service),
+					ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
 				},
 			},
 		},

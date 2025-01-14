@@ -8,6 +8,8 @@ services:
       K8S_LOG_PATH: /var/log/pods/${SERVICE_NAMESPACE:-default}_*/*/*.log
     deploy:
       mode: global
+    annotations:
+      kubepose.service.serviceAccountName: otelcontribcol
     volumes:
       - ./${CONFIG:-a}/config.yaml:/etc/otelcol-contrib/config.yaml
       - pod-logs:/var/log/pods

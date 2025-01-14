@@ -36,6 +36,8 @@ metadata:
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  annotations:
+    kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: collector
 spec:
@@ -44,6 +46,8 @@ spec:
       kubepose.service: collector
   template:
     metadata:
+      annotations:
+        kubepose.service.serviceAccountName: otelcontribcol
       creationTimestamp: null
       labels:
         kubepose.service: collector
@@ -72,6 +76,7 @@ spec:
           name: pod-logs
           readOnly: true
       restartPolicy: Always
+      serviceAccountName: otelcontribcol
       volumes:
       - configMap:
           name: collector-e2885204
@@ -90,6 +95,8 @@ status:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: collector
 spec:
