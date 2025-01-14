@@ -71,6 +71,9 @@ The tests in the `testdata` directory are integration tests which also work as e
 |---------|:------:|-------------|
 | Deployments | ✅ | Default workload type |
 | DaemonSets | ✅ | Enable with `deploy.mode: global` |
+| Multi-Container Pods | ✅ | Group via `kompose.service.group` |
+| Init Containers | ✅ | Mark with `kubepose.container.type: init` |
+| Sidecar Containers | ✅ | Init containers with `restart: always` |
 | StatefulSets | 🚧 | Planned |
 | CronJobs | 🚧 | Planned |
 
@@ -84,7 +87,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Working Directory | ✅ | Via `working_dir` |
 | Shell Access | ✅ | `stdin_open` and `tty` |
 | Resource Limits | ✅ | CPU and memory constraints |
-| Health Checks | 🚧 | Planned |
+| Health Checks | ✅ | Supports test commands and HTTP checks |
 | User Settings | 🚧 | Planned |
 
 ### Networking
