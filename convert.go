@@ -19,11 +19,14 @@ import (
 )
 
 const (
-	ServiceSelectorLabelKey         = "kubepose.service"
-	ServiceGroupLabelKey            = "kubepose.service.group"
-	ServiceAccountNameAnnotationKey = "kubepose.service.serviceAccountName"
-	ServiceIgnoreAnnotationKey      = "kubepose.service.ignore"
-	ContainerTypeLabelKey           = "kubepose.container.type"
+	ServiceSelectorLabelKey                    = "kubepose.service"
+	ServiceGroupLabelKey                       = "kubepose.service.group"
+	ServiceAccountNameAnnotationKey            = "kubepose.service.serviceAccountName"
+	ServiceIgnoreAnnotationKey                 = "kubepose.service.ignore"
+	ServiceExposeAnnotationKey                 = "kubepose.service.expose"
+	ServiceExposeIngressClassNameAnnotationKey = "kubepose.service.expose.ingress-class-name"
+	HealthcheckHttpPathAnnotationKey           = "kubepose.healthcheck.http.path"
+	ContainerTypeLabelKey                      = "kubepose.container.type"
 )
 
 func Convert(project *types.Project) (*Resources, error) {
@@ -86,32 +89,32 @@ func Convert(project *types.Project) (*Resources, error) {
 		services := groups[groupName]
 
 		// Find main services (not init)
-		var mainServices, initServices []types.ServiceConfig
+		var appServices, initServices []types.ServiceConfig
 		for _, svc := range services {
 			if svc.Labels[ContainerTypeLabelKey] == "init" {
 				initServices = append(initServices, svc)
 			} else {
-				mainServices = append(mainServices, svc)
+				appServices = append(appServices, svc)
 			}
 		}
 
-		if len(mainServices) == 0 {
+		if len(appServices) == 0 {
 			continue
 		}
 
 		// Use first main service for deployment/daemonset
-		primary := mainServices[0]
+		primary := appServices[0]
 
 		if primary.Deploy != nil && primary.Deploy.Mode == "global" {
 			ds := createDaemonSet(primary)
-			addContainersToSpec(&ds.Spec.Template.Spec, mainServices, initServices)
+			addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
 			updatePodSpecWithSecrets(&ds.Spec.Template.Spec, primary, secretMappings)
 			updatePodSpecWithConfigs(&ds.Spec.Template.Spec, primary, configMappings)
 			updatePodSpecWithVolumes(&ds.Spec.Template.Spec, primary, volumeMappings, resources, project)
 			resources.DaemonSets = append(resources.DaemonSets, ds)
 		} else {
 			deploy := createDeployment(primary)
-			addContainersToSpec(&deploy.Spec.Template.Spec, mainServices, initServices)
+			addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
 			updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, primary, secretMappings)
 			updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, primary, configMappings)
 			updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, primary, volumeMappings, resources, project)
@@ -119,10 +122,10 @@ func Convert(project *types.Project) (*Resources, error) {
 		}
 
 		// Create services for containers with ports
-		for _, svc := range mainServices {
+		for _, svc := range appServices {
 			if len(svc.Ports) > 0 {
 				resources.Services = append(resources.Services, createService(svc))
-				if _, ok := svc.Annotations["kubepose.service.expose"]; ok {
+				if _, ok := svc.Annotations[ServiceExposeAnnotationKey]; ok {
 					resources.Ingresses = append(resources.Ingresses, createIngress(svc))
 				}
 			}
@@ -132,11 +135,11 @@ func Convert(project *types.Project) (*Resources, error) {
 	return resources, nil
 }
 
-func addContainersToSpec(podSpec *corev1.PodSpec, mainServices, initServices []types.ServiceConfig) {
+func addContainersToSpec(podSpec *corev1.PodSpec, appServices, initServices []types.ServiceConfig) {
 	for _, svc := range initServices {
 		podSpec.InitContainers = append(podSpec.InitContainers, createContainer(svc))
 	}
-	for _, svc := range mainServices {
+	for _, svc := range appServices {
 		podSpec.Containers = append(podSpec.Containers, createContainer(svc))
 	}
 }
@@ -383,13 +386,13 @@ func createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 	var ingressClassName *string
 
 	// Check if a specific ingress class is specified in annotations
-	if class, ok := service.Annotations["kubepose.service.expose.ingress-class-name"]; ok {
+	if class, ok := service.Annotations[ServiceExposeIngressClassNameAnnotationKey]; ok {
 		ingressClassName = &class
 	}
 
 	// Get host from labels or annotations
 	host := service.Name // Default host
-	if h, ok := service.Annotations["kubepose.service.expose"]; ok && h != "true" {
+	if h, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && h != "true" {
 		host = h
 	}
 
@@ -542,7 +545,7 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 	}
 
 	// Check for HTTP-specific health check annotations
-	if path, ok := service.Annotations["kubepose.healthcheck.http.path"]; ok {
+	if path, ok := service.Annotations[HealthcheckHttpPathAnnotationKey]; ok {
 		httpProbe := &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
