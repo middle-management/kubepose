@@ -22,10 +22,20 @@ spec:
         imagePullPolicy: IfNotPresent
         name: web
         resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
       - image: nginx
         imagePullPolicy: IfNotPresent
         name: api
         resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
       initContainers:
       - image: fluentd
         imagePullPolicy: IfNotPresent
@@ -33,6 +43,10 @@ spec:
         resources: {}
         restartPolicy: Always
       restartPolicy: Always
+      volumes:
+      - name: secret
+        secret:
+          secretName: secret-16e40588
 status: {}
 
 ---
@@ -55,3 +69,18 @@ spec:
     resources: {}
   restartPolicy: OnFailure
 status: {}
+
+---
+apiVersion: v1
+data:
+  content: aHVzaAo=
+immutable: true
+kind: Secret
+metadata:
+  annotations:
+    generated-from: kubepose
+    kubepose.original-name: secret
+    kubepose.secrets.hmac-key: kubepose.secrets.v1
+  creationTimestamp: null
+  name: secret-16e40588
+type: Opaque
