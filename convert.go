@@ -245,6 +245,7 @@ func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.
 			Labels:      service.Labels,
 		},
 		Spec: appsv1.DaemonSetSpec{
+			UpdateStrategy: getUpdateStrategy(service),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					ServiceSelectorLabelKey: service.Name,
@@ -273,7 +274,6 @@ func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1
 	if service.Labels[ServiceGroupLabelKey] != "" {
 		serviceName = service.Labels[ServiceGroupLabelKey]
 	}
-	fmt.Println("createDeployemnt", serviceName, service.Labels[ServiceGroupLabelKey])
 
 	for _, d := range resources.Deployments {
 		if d.ObjectMeta.Name == serviceName {
@@ -298,6 +298,7 @@ func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
+			Strategy: getDeploymentStrategy(service),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					ServiceSelectorLabelKey: serviceName,
@@ -656,4 +657,102 @@ func removeDuplicateVolumeMounts(containers []corev1.Container) {
 		}
 		containers[i].VolumeMounts = unique
 	}
+}
+
+func getDeploymentStrategy(service types.ServiceConfig) appsv1.DeploymentStrategy {
+	if service.Deploy != nil && service.Deploy.UpdateConfig != nil {
+		updateConfig := service.Deploy.UpdateConfig
+
+		var maxSurge *intstr.IntOrString
+		if updateConfig.Parallelism != nil {
+			maxSurge = &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(ptr.Deref(updateConfig.Parallelism, 0)),
+			}
+		}
+
+		switch updateConfig.Order {
+		case "stop-first":
+			return appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			}
+		case "start-first":
+			return appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge: maxSurge,
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 0,
+					},
+				},
+			}
+		default: // default to RollingUpdate with some unavailability allowed
+			return appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDeployment{
+					MaxSurge: maxSurge,
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 1,
+					},
+				},
+			}
+		}
+	}
+
+	return appsv1.DeploymentStrategy{}
+}
+
+func getUpdateStrategy(service types.ServiceConfig) appsv1.DaemonSetUpdateStrategy {
+	if service.Deploy != nil && service.Deploy.UpdateConfig != nil {
+		updateConfig := service.Deploy.UpdateConfig
+
+		var parallelism *intstr.IntOrString
+		if updateConfig.Parallelism != nil {
+			parallelism = &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(ptr.Deref(updateConfig.Parallelism, 0)),
+			}
+		}
+
+		switch updateConfig.Order {
+		case "start-first":
+			return appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+					MaxSurge: parallelism,
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 0,
+					},
+				},
+			}
+		case "stop-first":
+			return appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+					MaxSurge: &intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 0,
+					},
+					MaxUnavailable: parallelism,
+				},
+			}
+		default:
+			// Default to allowing both surge and unavailability
+			return appsv1.DaemonSetUpdateStrategy{
+				Type: appsv1.RollingUpdateDaemonSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+					MaxSurge: parallelism,
+					MaxUnavailable: &intstr.IntOrString{
+						Type:   intstr.Int,
+						IntVal: 1,
+					},
+				},
+			}
+		}
+	}
+
+	return appsv1.DaemonSetUpdateStrategy{}
 }
