@@ -94,8 +94,8 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 }
 
 func updatePodSpecWithConfigs(spec *corev1.PodSpec, service types.ServiceConfig, configMappings map[string]ConfigMapping) {
-	var volumes []corev1.Volume
-	var volumeMounts []corev1.VolumeMount
+	// Track which containers need which configs
+	containerConfigs := make(map[string][]corev1.VolumeMount)
 
 	// Process each config in the service
 	for _, serviceConfig := range service.Configs {
@@ -105,62 +105,76 @@ func updatePodSpecWithConfigs(spec *corev1.PodSpec, service types.ServiceConfig,
 				optional = ptr.To(true)
 			}
 
-			// Set target according to Docker Compose defaults:
-			// Linux: /<config_name>
-			// Windows: C:\<config_name>
+			// Set target according to Docker Compose defaults
 			target := serviceConfig.Target
 			if target == "" {
 				// TODO: Add Windows support by checking container OS
 				target = "/" + serviceConfig.Source
 			}
 
-			volume := corev1.Volume{
-				Name: serviceConfig.Source,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: mapping.Name,
+			// Create volume if it doesn't already exist
+			volumeName := serviceConfig.Source
+			volumeExists := false
+			for _, v := range spec.Volumes {
+				if v.Name == volumeName {
+					volumeExists = true
+					break
+				}
+			}
+
+			if !volumeExists {
+				volume := corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: mapping.Name,
+							},
+							Optional: optional,
 						},
-						Optional: optional,
 					},
-				},
+				}
+
+				if !mapping.External {
+					// For non-external configs, mount only the specific key
+					volume.VolumeSource.ConfigMap.Items = []corev1.KeyToPath{
+						{
+							Key:  configsDefaultKey,
+							Path: filepath.Base(target),
+						},
+					}
+				}
+
+				spec.Volumes = append(spec.Volumes, volume)
 			}
 
 			volumeMount := corev1.VolumeMount{
-				Name:      volume.Name,
+				Name:      volumeName,
 				MountPath: target,
 				ReadOnly:  true,
 			}
 
-			if !mapping.External {
-				// For non-external configs, mount only the specific key
-				volume.VolumeSource.ConfigMap.Items = []corev1.KeyToPath{
-					{
-						Key:  configsDefaultKey,
-						Path: filepath.Base(target),
-					},
-				}
-			}
-
-			volumes = append(volumes, volume)
-			volumeMounts = append(volumeMounts, volumeMount)
+			// Add mount to container's config mounts
+			containerConfigs[service.Name] = append(containerConfigs[service.Name], volumeMount)
 		}
 	}
 
-	// Add volumes to pod spec if any were created
-	if len(volumes) > 0 {
-		spec.Volumes = append(
-			spec.Volumes,
-			volumes...,
-		)
-	}
-
-	// Add volume mounts to container if any were created
-	if len(volumeMounts) > 0 {
-		for i := range spec.Containers {
+	// Add volume mounts only to containers that requested them
+	for i := range spec.Containers {
+		if mounts, exists := containerConfigs[spec.Containers[i].Name]; exists {
 			spec.Containers[i].VolumeMounts = append(
 				spec.Containers[i].VolumeMounts,
-				volumeMounts...,
+				mounts...,
+			)
+		}
+	}
+
+	// Also handle init containers
+	for i := range spec.InitContainers {
+		if mounts, exists := containerConfigs[spec.InitContainers[i].Name]; exists {
+			spec.InitContainers[i].VolumeMounts = append(
+				spec.InitContainers[i].VolumeMounts,
+				mounts...,
 			)
 		}
 	}

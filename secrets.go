@@ -101,12 +101,11 @@ func readFileWithShortHash(path string, hmacKey string) ([]byte, string, error) 
 	return content, hex.EncodeToString(hasher.Sum(nil))[0:8], nil
 }
 
-// updatePodSpecWithSecrets updates a deployment with secret volumes and mounts
 func updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig, secretMappings map[string]SecretMapping) {
-	var volumes []corev1.Volume
-	var volumeMounts []corev1.VolumeMount
+	// Track which containers need which secrets
+	containerSecrets := make(map[string][]corev1.VolumeMount)
 
-	// Process each secret in the service
+	// First ensure all required secret volumes exist in the pod spec
 	for _, serviceSecret := range service.Secrets {
 		if mapping, exists := secretMappings[serviceSecret.Source]; exists {
 			var optional *bool
@@ -114,23 +113,37 @@ func updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig,
 				optional = ptr.To(true)
 			}
 
+			// Add volume if it doesn't already exist
+			volumeName := serviceSecret.Source
+			volumeExists := false
+			for _, v := range spec.Volumes {
+				if v.Name == volumeName {
+					volumeExists = true
+					break
+				}
+			}
+
+			if !volumeExists {
+				volume := corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: mapping.Name,
+							Optional:   optional,
+						},
+					},
+				}
+				spec.Volumes = append(spec.Volumes, volume)
+			}
+
+			// Create volume mount
 			target := serviceSecret.Target
 			if target == "" {
 				target = filepath.Join("/run/secrets", serviceSecret.Source)
 			}
 
-			volume := corev1.Volume{
-				Name: serviceSecret.Source,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: mapping.Name,
-						Optional:   optional,
-					},
-				},
-			}
-
 			volumeMount := corev1.VolumeMount{
-				Name:      volume.Name,
+				Name:      volumeName,
 				MountPath: target,
 				ReadOnly:  true,
 			}
@@ -140,25 +153,27 @@ func updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig,
 				volumeMount.SubPath = secretsDefaultKey
 			}
 
-			volumes = append(volumes, volume)
-			volumeMounts = append(volumeMounts, volumeMount)
+			// Add mount to container's secret mounts
+			containerSecrets[service.Name] = append(containerSecrets[service.Name], volumeMount)
 		}
 	}
 
-	// Add volumes to pod spec if any were created
-	if len(volumes) > 0 {
-		spec.Volumes = append(
-			spec.Volumes,
-			volumes...,
-		)
-	}
-
-	// Add volume mounts to container if any were created
-	if len(volumeMounts) > 0 {
-		for i := range spec.Containers {
+	// Add volume mounts only to containers that requested them
+	for i := range spec.Containers {
+		if mounts, exists := containerSecrets[spec.Containers[i].Name]; exists {
 			spec.Containers[i].VolumeMounts = append(
 				spec.Containers[i].VolumeMounts,
-				volumeMounts...,
+				mounts...,
+			)
+		}
+	}
+
+	// Also handle init containers
+	for i := range spec.InitContainers {
+		if mounts, exists := containerSecrets[spec.InitContainers[i].Name]; exists {
+			spec.InitContainers[i].VolumeMounts = append(
+				spec.InitContainers[i].VolumeMounts,
+				mounts...,
 			)
 		}
 	}

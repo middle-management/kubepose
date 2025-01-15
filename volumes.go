@@ -91,12 +91,12 @@ func isFilePath(path string) bool {
 const volumesHmacKey = "kubepose.volumes.v1"
 
 func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources, project *types.Project) error {
-	var volumes []corev1.Volume
-	var volumeMounts []corev1.VolumeMount
+	// Track which containers need which volumes
+	containerVolumes := make(map[string][]corev1.VolumeMount)
 
+	// First collect volumes needed for this service
 	for _, serviceVolume := range service.Volumes {
 		if serviceVolume.Type == "bind" && isFilePath(serviceVolume.Source) {
-			// using a hmac key to be able to invalidate if we modify how an immutable config map is shaped
 			content, hash, err := readFileWithShortHash(serviceVolume.Source, volumesHmacKey)
 			if err != nil {
 				return fmt.Errorf("failed to read volume file %s: %w", serviceVolume.Source, err)
@@ -107,29 +107,40 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 				return fmt.Errorf("failed to get relative path for volume file %s: %w", serviceVolume.Source, err)
 			}
 
-			// Create ConfigMap
+			// Create ConfigMap if it doesn't exist
 			configMapName := fmt.Sprintf("%s-%s", service.Name, hash)
 			mountPath := filepath.Base(serviceVolume.Target)
-			configMap := &corev1.ConfigMap{
-				Immutable: ptr.To(true),
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:   configMapName,
-					Labels: service.Labels,
-					Annotations: map[string]string{
-						"generated-from":           "kubepose",
-						"kubepose.volume.source":   projectPath,
-						"kubepose.volume.hmac-key": volumesHmacKey,
-					},
-				},
-				Data: map[string]string{
-					mountPath: string(content),
-				},
+
+			configMapExists := false
+			for _, cm := range resources.ConfigMaps {
+				if cm.Name == configMapName {
+					configMapExists = true
+					break
+				}
 			}
-			resources.ConfigMaps = append(resources.ConfigMaps, configMap)
+
+			if !configMapExists {
+				configMap := &corev1.ConfigMap{
+					Immutable: ptr.To(true),
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   configMapName,
+						Labels: service.Labels,
+						Annotations: map[string]string{
+							"generated-from":           "kubepose",
+							"kubepose.volume.source":   projectPath,
+							"kubepose.volume.hmac-key": volumesHmacKey,
+						},
+					},
+					Data: map[string]string{
+						mountPath: string(content),
+					},
+				}
+				resources.ConfigMaps = append(resources.ConfigMaps, configMap)
+			}
 
 			volumeMappings[serviceVolume.Source] = VolumeMapping{
 				Name:          configMapName,
@@ -140,72 +151,89 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 		}
 	}
 
+	// Process volumes for this service
 	for _, serviceVolume := range service.Volumes {
 		if mapping, exists := volumeMappings[serviceVolume.Source]; exists {
-			if mapping.IsConfigMap {
-				// Create volume for ConfigMap
-				volumes = append(volumes, corev1.Volume{
-					Name: mapping.Name,
-					VolumeSource: corev1.VolumeSource{
-						ConfigMap: &corev1.ConfigMapVolumeSource{
-							LocalObjectReference: corev1.LocalObjectReference{
-								Name: mapping.ConfigMapName,
+			volumeName := mapping.Name
+
+			// Check if volume already exists in pod spec
+			volumeExists := false
+			for _, v := range spec.Volumes {
+				if v.Name == volumeName {
+					volumeExists = true
+					break
+				}
+			}
+
+			if !volumeExists {
+				var volume corev1.Volume
+
+				if mapping.IsConfigMap {
+					volume = corev1.Volume{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: mapping.ConfigMapName,
+								},
 							},
 						},
-					},
-				})
-
-				// Create volume mount
-				mountPath := serviceVolume.Target
-				if mountPath == "" {
-					mountPath = mapping.MountPath
+					}
+				} else if mapping.IsHostPath {
+					volume = corev1.Volume{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							HostPath: &corev1.HostPathVolumeSource{
+								Path: mapping.HostPath,
+							},
+						},
+					}
+				} else if serviceVolume.Type == "volume" {
+					volume = corev1.Volume{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ReadOnly:  serviceVolume.ReadOnly,
+								ClaimName: mapping.Name,
+							},
+						},
+					}
+				} else {
+					fmt.Println("unknown volume type")
+					fmt.Printf("%# v\n", mapping)
+					fmt.Printf("%# v\n", serviceVolume)
+					continue
 				}
 
-				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:      mapping.Name,
-					MountPath: mountPath,
+				spec.Volumes = append(spec.Volumes, volume)
+			}
+
+			// Create volume mount for this container
+			var volumeMount corev1.VolumeMount
+			if mapping.IsConfigMap {
+				volumeMount = corev1.VolumeMount{
+					Name:      volumeName,
+					MountPath: serviceVolume.Target,
 					SubPath:   filepath.Base(serviceVolume.Target),
 					ReadOnly:  serviceVolume.ReadOnly || mapping.IsConfigMap,
-				})
-
+				}
 			} else if mapping.IsHostPath {
-				// Create volume for hostPath
-				volumes = append(volumes, corev1.Volume{
-					Name: mapping.Name,
-					VolumeSource: corev1.VolumeSource{
-						HostPath: &corev1.HostPathVolumeSource{
-							Path: mapping.HostPath,
-						},
-					},
-				})
-
-				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:      mapping.Name,
+				volumeMount = corev1.VolumeMount{
+					Name:      volumeName,
 					MountPath: serviceVolume.Target,
 					ReadOnly:  true,
-				})
+				}
 			} else if serviceVolume.Type == "volume" {
-				volumes = append(volumes, corev1.Volume{
-					Name: mapping.Name,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ReadOnly:  serviceVolume.ReadOnly,
-							ClaimName: mapping.Name,
-						},
-					},
-				})
-
-				volumeMounts = append(volumeMounts, corev1.VolumeMount{
-					Name:        mapping.Name,
+				volumeMount = corev1.VolumeMount{
+					Name:        volumeName,
 					ReadOnly:    serviceVolume.ReadOnly,
 					MountPath:   serviceVolume.Target,
 					SubPathExpr: serviceVolume.Volume.Subpath,
-				})
-			} else {
-				fmt.Println("unknown volume type")
-				fmt.Printf("%# v\n", mapping)
-				fmt.Printf("%# v\n", serviceVolume)
+				}
 			}
+
+			// Add mount to container's volume mounts
+			containerVolumes[service.Name] = append(containerVolumes[service.Name], volumeMount)
 		} else {
 			fmt.Println("volume not found in mappings")
 			fmt.Printf("%# v\n", volumeMappings)
@@ -213,18 +241,22 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 		}
 	}
 
-	// Add volumes to pod spec if any were created
-	spec.Volumes = append(
-		spec.Volumes,
-		volumes...,
-	)
-
-	// Add volume mounts to container if any were created
-	if len(volumeMounts) > 0 {
-		for i := range spec.Containers {
+	// Add volume mounts only to containers that requested them
+	for i := range spec.Containers {
+		if mounts, exists := containerVolumes[spec.Containers[i].Name]; exists {
 			spec.Containers[i].VolumeMounts = append(
 				spec.Containers[i].VolumeMounts,
-				volumeMounts...,
+				mounts...,
+			)
+		}
+	}
+
+	// Also handle init containers
+	for i := range spec.InitContainers {
+		if mounts, exists := containerVolumes[spec.InitContainers[i].Name]; exists {
+			spec.InitContainers[i].VolumeMounts = append(
+				spec.InitContainers[i].VolumeMounts,
+				mounts...,
 			)
 		}
 	}

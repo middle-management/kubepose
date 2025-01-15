@@ -61,7 +61,7 @@ func Convert(project *types.Project) (*Resources, error) {
 		}
 
 		// Handle standalone pods (non-Always restart policy)
-		if getRestartPolicy(service) != corev1.RestartPolicyAlways {
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Labels[ContainerTypeLabelKey] != "init" {
 			pod := createPod(service)
 			pod.Spec.Containers = []corev1.Container{createContainer(service)}
 			updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
@@ -102,31 +102,51 @@ func Convert(project *types.Project) (*Resources, error) {
 			continue
 		}
 
-		// Use first main service for deployment/daemonset
-		primary := appServices[0]
+		// Sort services by name for consistent ordering
+		sort.Slice(appServices, func(i, j int) bool {
+			return appServices[i].Name < appServices[j].Name
+		})
+		sort.Slice(initServices, func(i, j int) bool {
+			return initServices[i].Name < initServices[j].Name
+		})
 
-		if primary.Deploy != nil && primary.Deploy.Mode == "global" {
-			ds := createDaemonSet(primary)
-			addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
-			updatePodSpecWithSecrets(&ds.Spec.Template.Spec, primary, secretMappings)
-			updatePodSpecWithConfigs(&ds.Spec.Template.Spec, primary, configMappings)
-			updatePodSpecWithVolumes(&ds.Spec.Template.Spec, primary, volumeMappings, resources, project)
-			resources.DaemonSets = append(resources.DaemonSets, ds)
-		} else {
-			deploy := createDeployment(primary)
-			addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
-			updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, primary, secretMappings)
-			updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, primary, configMappings)
-			updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, primary, volumeMappings, resources, project)
-			resources.Deployments = append(resources.Deployments, deploy)
-		}
+		for _, service := range appServices {
+			if service.Deploy != nil && service.Deploy.Mode == "global" {
+				ds := createDaemonSet(resources, service)
+				addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
+				for _, svc := range append(appServices, initServices...) {
+					updatePodSpecWithSecrets(&ds.Spec.Template.Spec, svc, secretMappings)
+					updatePodSpecWithConfigs(&ds.Spec.Template.Spec, svc, configMappings)
+					updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources, project)
+				}
+				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
+				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
+			} else {
+				deploy := createDeployment(resources, service)
+				addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
+				for _, svc := range append(appServices, initServices...) {
+					updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, svc, secretMappings)
+					updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, svc, configMappings)
+					updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources, project)
+				}
+				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
+				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
+			}
 
-		// Create services for containers with ports
-		for _, svc := range appServices {
-			if len(svc.Ports) > 0 {
-				resources.Services = append(resources.Services, createService(svc))
-				if _, ok := svc.Annotations[ServiceExposeAnnotationKey]; ok {
-					resources.Ingresses = append(resources.Ingresses, createIngress(svc))
+			if len(service.Ports) > 0 {
+				svc := createService(service)
+				found := false
+				for _, s := range resources.Services {
+					if s.ObjectMeta.Name == svc.ObjectMeta.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					resources.Services = append(resources.Services, svc)
+					if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
+						resources.Ingresses = append(resources.Ingresses, createIngress(service))
+					}
 				}
 			}
 		}
@@ -136,10 +156,22 @@ func Convert(project *types.Project) (*Resources, error) {
 }
 
 func addContainersToSpec(podSpec *corev1.PodSpec, appServices, initServices []types.ServiceConfig) {
+nextInitService:
 	for _, svc := range initServices {
+		for _, container := range podSpec.InitContainers {
+			if container.Name == svc.Name {
+				continue nextInitService
+			}
+		}
 		podSpec.InitContainers = append(podSpec.InitContainers, createContainer(svc))
 	}
+nextService:
 	for _, svc := range appServices {
+		for _, container := range podSpec.Containers {
+			if container.Name == svc.Name {
+				continue nextService
+			}
+		}
 		podSpec.Containers = append(podSpec.Containers, createContainer(svc))
 	}
 }
@@ -190,14 +222,25 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 	}
 }
 
-func createDaemonSet(service types.ServiceConfig) *appsv1.DaemonSet {
-	return &appsv1.DaemonSet{
+func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.DaemonSet {
+	serviceName := service.Name
+	if service.Labels[ServiceGroupLabelKey] != "" {
+		serviceName = service.Labels[ServiceGroupLabelKey]
+	}
+
+	for _, ds := range resources.DaemonSets {
+		if ds.ObjectMeta.Name == serviceName {
+			return ds
+		}
+	}
+
+	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        service.Name,
+			Name:        serviceName,
 			Annotations: service.Annotations,
 			Labels:      service.Labels,
 		},
@@ -221,21 +264,35 @@ func createDaemonSet(service types.ServiceConfig) *appsv1.DaemonSet {
 			},
 		},
 	}
+	resources.DaemonSets = append(resources.DaemonSets, ds)
+	return ds
 }
 
-func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
+func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1.Deployment {
+	serviceName := service.Name
+	if service.Labels[ServiceGroupLabelKey] != "" {
+		serviceName = service.Labels[ServiceGroupLabelKey]
+	}
+	fmt.Println("createDeployemnt", serviceName, service.Labels[ServiceGroupLabelKey])
+
+	for _, d := range resources.Deployments {
+		if d.ObjectMeta.Name == serviceName {
+			return d
+		}
+	}
+
 	var replicas *int32
 	if service.Deploy != nil && service.Deploy.Replicas != nil {
 		replicas = ptr.To(int32(*service.Deploy.Replicas))
 	}
 
-	return &appsv1.Deployment{
+	d := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        service.Name,
+			Name:        serviceName,
 			Annotations: service.Annotations,
 			Labels:      service.Labels,
 		},
@@ -243,14 +300,14 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			Replicas: replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					ServiceSelectorLabelKey: service.Name,
+					ServiceSelectorLabelKey: serviceName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: service.Annotations,
 					Labels: mergeMaps(service.Labels, map[string]string{
-						ServiceSelectorLabelKey: service.Name,
+						ServiceSelectorLabelKey: serviceName,
 					}),
 				},
 				Spec: corev1.PodSpec{
@@ -260,6 +317,8 @@ func createDeployment(service types.ServiceConfig) *appsv1.Deployment {
 			},
 		},
 	}
+	resources.Deployments = append(resources.Deployments, d)
+	return d
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -283,6 +342,10 @@ func escapeEnvs(input []string) []string {
 }
 
 func createService(service types.ServiceConfig) *corev1.Service {
+	serviceName := service.Name
+	if service.Labels[ServiceGroupLabelKey] != "" {
+		serviceName = service.Labels[ServiceGroupLabelKey]
+	}
 	// TODO support LoadBalancer, NodePort, ExternalName, ClusterIP
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -290,13 +353,13 @@ func createService(service types.ServiceConfig) *corev1.Service {
 			Kind:       "Service",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        service.Name,
+			Name:        serviceName,
 			Annotations: service.Annotations,
 			Labels:      service.Labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				ServiceSelectorLabelKey: service.Name,
+				ServiceSelectorLabelKey: serviceName,
 			},
 			Ports: convertServicePorts(service.Ports),
 		},
@@ -578,4 +641,19 @@ func getFirstPort(service types.ServiceConfig) int {
 		return int(service.Ports[0].Target)
 	}
 	return 80 // default port if none specified
+}
+
+func removeDuplicateVolumeMounts(containers []corev1.Container) {
+	for i := range containers {
+		seen := make(map[string]bool)
+		var unique []corev1.VolumeMount
+		for _, mount := range containers[i].VolumeMounts {
+			key := mount.Name + ":" + mount.MountPath
+			if !seen[key] {
+				seen[key] = true
+				unique = append(unique, mount)
+			}
+		}
+		containers[i].VolumeMounts = unique
+	}
 }

@@ -3,21 +3,27 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
+    kubepose.container.type: app
     kubepose.service.group: myapp
-  name: web
+  name: myapp
 spec:
   selector:
     matchLabels:
-      kubepose.service: web
+      kubepose.service: myapp
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        kubepose.service: web
+        kubepose.container.type: app
+        kubepose.service: myapp
         kubepose.service.group: myapp
     spec:
       containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: api
+        resources: {}
       - image: nginx
         imagePullPolicy: IfNotPresent
         name: web
@@ -27,47 +33,29 @@ spec:
           name: secret
           readOnly: true
           subPath: content
-      - image: nginx
-        imagePullPolicy: IfNotPresent
-        name: api
-        resources: {}
-        volumeMounts:
-        - mountPath: /run/secrets/secret
-          name: secret
-          readOnly: true
-          subPath: content
       initContainers:
+      - args:
+        - echo
+        - migrate
+        image: alpine
+        imagePullPolicy: IfNotPresent
+        name: db-setup
+        resources: {}
       - image: fluentd
         imagePullPolicy: IfNotPresent
         name: logshipper
         resources: {}
         restartPolicy: Always
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
       restartPolicy: Always
       volumes:
       - name: secret
         secret:
           secretName: secret-16e40588
-status: {}
-
----
-apiVersion: v1
-kind: Pod
-metadata:
-  creationTimestamp: null
-  labels:
-    kubepose.container.type: init
-    kubepose.service.group: myapp
-  name: db-setup
-spec:
-  containers:
-  - args:
-    - echo
-    - migrate
-    image: alpine
-    imagePullPolicy: IfNotPresent
-    name: db-setup
-    resources: {}
-  restartPolicy: OnFailure
 status: {}
 
 ---
