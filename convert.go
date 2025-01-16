@@ -215,10 +215,7 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 			Annotations: service.Annotations,
 			Labels:      service.Labels,
 		},
-		Spec: corev1.PodSpec{
-			RestartPolicy:      getRestartPolicy(service),
-			ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
-		},
+		Spec: createPodSpec(service),
 	}
 }
 
@@ -258,10 +255,7 @@ func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.
 						ServiceSelectorLabelKey: service.Name,
 					}),
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      getRestartPolicy(service),
-					ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
-				},
+				Spec: createPodSpec(service),
 			},
 		},
 	}
@@ -311,15 +305,20 @@ func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1
 						ServiceSelectorLabelKey: serviceName,
 					}),
 				},
-				Spec: corev1.PodSpec{
-					RestartPolicy:      getRestartPolicy(service),
-					ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
-				},
+				Spec: createPodSpec(service),
 			},
 		},
 	}
 	resources.Deployments = append(resources.Deployments, d)
 	return d
+}
+
+func createPodSpec(service types.ServiceConfig) corev1.PodSpec {
+	return corev1.PodSpec{
+		RestartPolicy:      getRestartPolicy(service),
+		SecurityContext:    getSecurityContext(service),
+		ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
+	}
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -755,4 +754,47 @@ func getUpdateStrategy(service types.ServiceConfig) appsv1.DaemonSetUpdateStrate
 	}
 
 	return appsv1.DaemonSetUpdateStrategy{}
+}
+
+func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext {
+	var runAsUser, runAsGroup, fsGroup *int64
+	var supplementalGroups []int64
+
+	if service.User != "" {
+		parts := strings.Split(service.User, ":")
+
+		if uid, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
+			runAsUser = &uid
+		} else {
+			fmt.Printf("Warning: skipping named user %q - only numeric IDs are supported\n", parts[0])
+		}
+
+		if len(parts) > 1 {
+			if gid, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+				runAsGroup = &gid
+				fsGroup = &gid
+			} else {
+				fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", parts[1])
+			}
+		}
+	}
+
+	for _, g := range service.GroupAdd {
+		if gid, err := strconv.ParseInt(g, 10, 64); err == nil {
+			supplementalGroups = append(supplementalGroups, gid)
+		} else {
+			fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", g)
+		}
+	}
+
+	if runAsUser == nil && runAsGroup == nil && fsGroup == nil && len(supplementalGroups) == 0 {
+		return nil
+	}
+
+	return &corev1.PodSecurityContext{
+		RunAsUser:          runAsUser,
+		RunAsGroup:         runAsGroup,
+		FSGroup:            fsGroup,
+		SupplementalGroups: supplementalGroups,
+	}
 }

@@ -79,6 +79,10 @@ func TestConvert(t *testing.T) {
 		}, Env: map[string]string{
 			"CONFIG": "b",
 		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
+		{Name: "user/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/user/compose.yaml"},
+			Profiles: []string{"*"},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 	}
 	for _, tt := range tests {
 		tt := tt

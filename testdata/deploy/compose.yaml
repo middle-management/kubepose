@@ -1,0 +1,21 @@
+services:
+  # Rolling update that starts new pods first
+  web:
+    deploy:
+      update_config:
+        order: start-first
+        parallelism: 2
+
+  # Stop all pods before starting new ones
+  db:
+    deploy:
+      update_config:
+        order: stop-first
+
+  # Gradual rollout with monitoring
+  api:
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 30s
+        monitor: 60s

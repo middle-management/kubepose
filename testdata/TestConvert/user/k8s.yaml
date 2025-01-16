@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: app
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: app
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubepose.service: app
+    spec:
+      containers:
+      - args:
+        - id
+        image: alpine
+        imagePullPolicy: IfNotPresent
+        name: app
+        resources: {}
+      restartPolicy: Always
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+status: {}
