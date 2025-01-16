@@ -89,7 +89,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Shell Access | ✅ | `stdin_open` and `tty` |
 | Resource Limits | ✅ | CPU and memory constraints |
 | Health Checks | ✅ | Supports test commands and HTTP checks |
-| User Settings | 🚧 | Planned |
+| User Settings | ✅ | Numeric user/group IDs only |
 
 ### Networking
 
