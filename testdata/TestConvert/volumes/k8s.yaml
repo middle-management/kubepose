@@ -79,6 +79,10 @@ spec:
           timeoutSeconds: 10
         resources: {}
         volumeMounts:
+        - mountPath: /tmpx
+          name: tmpfs--tmpx
+        - mountPath: /runx
+          name: tmpfs--runx
         - mountPath: /var/lib/postgresql/data
           name: postgres-data
         - mountPath: /docker-entrypoint-initdb.d/init.sql
@@ -87,6 +91,12 @@ spec:
           subPath: init.sql
       restartPolicy: Always
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmpfs--tmpx
+      - emptyDir:
+          medium: Memory
+        name: tmpfs--runx
       - name: postgres-data
         persistentVolumeClaim:
           claimName: postgres-data

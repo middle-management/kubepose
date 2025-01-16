@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	corev1 "k8s.io/api/core/v1"
@@ -19,6 +20,8 @@ type VolumeMapping struct {
 	HostPath      string
 	IsConfigMap   bool
 	IsHostPath    bool
+	IsTmpfs       bool
+	TmpfsSize     *resource.Quantity
 }
 
 type VolumeExtension struct {
@@ -93,6 +96,41 @@ const volumesHmacKey = "kubepose.volumes.v1"
 func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources, project *types.Project) error {
 	// Track which containers need which volumes
 	containerVolumes := make(map[string][]corev1.VolumeMount)
+
+	// Process tmpfs mounts
+	for _, path := range service.Tmpfs {
+		volumeName := fmt.Sprintf("tmpfs-%s", strings.NewReplacer("/", "-", ".", "-").Replace(path))
+
+		// Add volume if it doesn't exist
+		volumeExists := false
+		for _, v := range spec.Volumes {
+			if v.Name == volumeName {
+				volumeExists = true
+				break
+			}
+		}
+
+		if !volumeExists {
+			volume := corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium: corev1.StorageMediumMemory,
+					},
+				},
+			}
+			spec.Volumes = append(spec.Volumes, volume)
+		}
+
+		// Create volume mount
+		volumeMount := corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: path,
+		}
+
+		// Add mount to container's volume mounts
+		containerVolumes[service.Name] = append(containerVolumes[service.Name], volumeMount)
+	}
 
 	// First collect volumes needed for this service
 	for _, serviceVolume := range service.Volumes {
@@ -262,4 +300,39 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 	}
 
 	return nil
+}
+
+func processTmpfs(tmpfs interface{}) ([]string, map[string]*resource.Quantity, error) {
+	var paths []string
+	sizes := make(map[string]*resource.Quantity)
+
+	switch v := tmpfs.(type) {
+	case []string:
+		paths = v
+	case types.StringList:
+		paths = v
+	case []interface{}:
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				paths = append(paths, str)
+			}
+		}
+	case map[string]interface{}:
+		for path, config := range v {
+			paths = append(paths, path)
+			if config != nil {
+				if cfg, ok := config.(map[string]interface{}); ok {
+					if size, ok := cfg["size"].(string); ok {
+						if quantity, err := resource.ParseQuantity(size); err == nil {
+							sizes[path] = &quantity
+						} else {
+							return nil, nil, fmt.Errorf("invalid tmpfs size %q for %s: %w", size, path, err)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return paths, sizes, nil
 }

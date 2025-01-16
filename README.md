@@ -107,8 +107,8 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Named Volumes | ✅ | Converts to PersistentVolumeClaims |
 | Bind Mounts | ✅ | Creates ConfigMaps for files |
 | Host Paths | ✅ | Via `kubepose.volume.hostPath` label |
+| Tmpfs | ✅ | Maps to emptyDir with Memory medium |
 | Volume Labels | ✅ | Preserved in K8s resources |
-| Tmpfs | 🚧 | Planned |
 
 ### Configuration & Secrets
 
