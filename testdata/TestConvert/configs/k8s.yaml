@@ -5,11 +5,10 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.configs.hmac-key: kubepose.configs.v1
-    kubepose.original-name: env_config
+    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.version: TODO
   creationTimestamp: null
-  name: env_config-d5a42339
+  name: env_config-290a46c2
 
 ---
 apiVersion: v1
@@ -20,11 +19,10 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.configs.hmac-key: kubepose.configs.v1
-    kubepose.original-name: file_config
+    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.version: TODO
   creationTimestamp: null
-  name: file_config-a408ff0b
+  name: file_config-123b70c3
 
 ---
 apiVersion: v1
@@ -38,16 +36,17 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.configs.hmac-key: kubepose.configs.v1
-    kubepose.original-name: my_config
+    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.version: TODO
   creationTimestamp: null
-  name: my_config-482442e0
+  name: my_config-c06e3902
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    kubepose.version: TODO
   creationTimestamp: null
   name: app
 spec:
@@ -57,6 +56,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubepose.version: TODO
       creationTimestamp: null
       labels:
         kubepose.service: app
@@ -85,18 +86,18 @@ spec:
           items:
           - key: content
             path: config.json
-          name: my_config-482442e0
+          name: my_config-c06e3902
         name: my_config
       - configMap:
           items:
           - key: content
             path: file_config
-          name: file_config-a408ff0b
+          name: file_config-123b70c3
         name: file_config
       - configMap:
           items:
           - key: content
             path: env_config
-          name: env_config-d5a42339
+          name: env_config-290a46c2
         name: env_config
 status: {}

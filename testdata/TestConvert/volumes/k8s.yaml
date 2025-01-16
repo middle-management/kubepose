@@ -6,16 +6,17 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.volume.hmac-key: kubepose.volumes.v1
-    kubepose.volume.source: init.sql
+    kubepose.version: TODO
+    kubepose.volume.hmac-key: kubepose.volume.v1
   creationTimestamp: null
-  name: postgres-c96da7bb
+  name: postgres-cee76ffa
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    kubepose.version: TODO
   creationTimestamp: null
   name: postgres
 spec:
@@ -25,6 +26,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubepose.version: TODO
       creationTimestamp: null
       labels:
         kubepose.service: postgres
@@ -86,7 +89,7 @@ spec:
         - mountPath: /var/lib/postgresql/data
           name: postgres-data
         - mountPath: /docker-entrypoint-initdb.d/init.sql
-          name: postgres-c96da7bb
+          name: postgres-cee76ffa
           readOnly: true
           subPath: init.sql
       restartPolicy: Always
@@ -101,8 +104,8 @@ spec:
         persistentVolumeClaim:
           claimName: postgres-data
       - configMap:
-          name: postgres-c96da7bb
-        name: postgres-c96da7bb
+          name: postgres-cee76ffa
+        name: postgres-cee76ffa
 status: {}
 
 ---
@@ -110,8 +113,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.original-name: postgres-data
+    kubepose.version: TODO
   creationTimestamp: null
   name: postgres-data
 spec:

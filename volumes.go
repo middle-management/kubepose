@@ -24,15 +24,11 @@ type VolumeMapping struct {
 	TmpfsSize     *resource.Quantity
 }
 
-type VolumeExtension struct {
-	HostPath string `yaml:"hostPath"`
-}
-
 func processVolumes(project *types.Project, resources *Resources) (map[string]VolumeMapping, error) {
 	volumeMappings := make(map[string]VolumeMapping)
 
 	for name, volume := range project.Volumes {
-		if hostPath, exists := volume.Labels["kubepose.volume.hostPath"]; exists {
+		if hostPath, exists := volume.Labels[VolumeHostPathLabelKey]; exists {
 			volumeMappings[name] = VolumeMapping{
 				Name:       name,
 				IsHostPath: true,
@@ -57,8 +53,7 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				Name:   name,
 				Labels: volume.Labels,
 				Annotations: map[string]string{
-					"generated-from":         "kubepose",
-					"kubepose.original-name": name,
+					KubeposeVersionAnnotationKey: "TODO",
 				},
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
@@ -90,10 +85,7 @@ func isFilePath(path string) bool {
 	return !info.IsDir()
 }
 
-// using a hmac key to be able to invalidate if we modify how an immutable volume is shaped
-const volumesHmacKey = "kubepose.volumes.v1"
-
-func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources, project *types.Project) error {
+func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources) error {
 	// Track which containers need which volumes
 	containerVolumes := make(map[string][]corev1.VolumeMount)
 
@@ -119,6 +111,7 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 					},
 				},
 			}
+
 			spec.Volumes = append(spec.Volumes, volume)
 		}
 
@@ -135,14 +128,9 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 	// First collect volumes needed for this service
 	for _, serviceVolume := range service.Volumes {
 		if serviceVolume.Type == "bind" && isFilePath(serviceVolume.Source) {
-			content, hash, err := readFileWithShortHash(serviceVolume.Source, volumesHmacKey)
+			content, hash, err := readFileWithShortHash(serviceVolume.Source, volumeHmacKey)
 			if err != nil {
 				return fmt.Errorf("failed to read volume file %s: %w", serviceVolume.Source, err)
-			}
-
-			projectPath, err := filepath.Rel(project.WorkingDir, serviceVolume.Source)
-			if err != nil {
-				return fmt.Errorf("failed to get relative path for volume file %s: %w", serviceVolume.Source, err)
 			}
 
 			// Create ConfigMap if it doesn't exist
@@ -168,9 +156,8 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 						Name:   configMapName,
 						Labels: service.Labels,
 						Annotations: map[string]string{
-							"generated-from":           "kubepose",
-							"kubepose.volume.source":   projectPath,
-							"kubepose.volume.hmac-key": volumesHmacKey,
+							KubeposeVersionAnnotationKey: "TODO",
+							VolumeHmacKeyAnnotationKey:   volumeHmacKey,
 						},
 					},
 					Data: map[string]string{

@@ -18,10 +18,6 @@ import (
 // processSecrets converts Compose secrets to Kubernetes secrets and returns a map of
 // original secret names to their corresponding K8s secret names (with content hash)
 
-// using a hmac key to be able to invalidate if we modify how an immutable secret is shaped
-const secretsHmacKey = "kubepose.secrets.v1"
-const secretsDefaultKey = "content"
-
 type SecretMapping struct {
 	Name     string
 	External bool
@@ -39,10 +35,10 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]Se
 				return nil, fmt.Errorf("secret %s references non-existing environment variable %s", name, secret.Environment)
 			}
 			content = []byte(value)
-			hasher := hmac.New(sha256.New, []byte(secretsHmacKey))
+			hasher := hmac.New(sha256.New, []byte(secretHmacKey))
 			shortHash = hex.EncodeToString(hasher.Sum(content))[0:8]
 		} else if secret.File != "" {
-			fileContent, fileHash, err := readFileWithShortHash(secret.File, secretsHmacKey)
+			fileContent, fileHash, err := readFileWithShortHash(secret.File, secretHmacKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read secret file %s: %w", secret.File, err)
 			}
@@ -65,16 +61,15 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]Se
 				Name:   k8sSecretName,
 				Labels: secret.Labels,
 				Annotations: map[string]string{
-					"generated-from":            "kubepose",
-					"kubepose.original-name":    name,
-					"kubepose.secrets.hmac-key": secretsHmacKey,
+					KubeposeVersionAnnotationKey: "TODO",
+					SecretHmacKeyAnnotationKey:   secretHmacKey,
 				},
 			},
 			// TODO type from label kubepose.secret-type or default to Opaque
 			Immutable: ptr.To(true),
 			Type:      corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
-				secretsDefaultKey: content,
+				secretDefaultKey: content,
 			},
 		}
 
@@ -150,7 +145,7 @@ func updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig,
 
 			// Only use SubPath for non-external secrets
 			if !mapping.External {
-				volumeMount.SubPath = secretsDefaultKey
+				volumeMount.SubPath = secretDefaultKey
 			}
 
 			// Add mount to container's secret mounts

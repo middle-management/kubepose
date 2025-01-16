@@ -19,14 +19,26 @@ import (
 )
 
 const (
+	KubeposeVersionAnnotationKey               = "kubepose.version"
 	ServiceSelectorLabelKey                    = "kubepose.service"
-	ServiceGroupLabelKey                       = "kubepose.service.group"
+	ServiceGroupAnnotationKey                  = "kubepose.service.group"
 	ServiceAccountNameAnnotationKey            = "kubepose.service.serviceAccountName"
 	ServiceIgnoreAnnotationKey                 = "kubepose.service.ignore"
 	ServiceExposeAnnotationKey                 = "kubepose.service.expose"
-	ServiceExposeIngressClassNameAnnotationKey = "kubepose.service.expose.ingress-class-name"
+	ServiceExposeIngressClassNameAnnotationKey = "kubepose.service.expose.ingressClassName"
 	HealthcheckHttpPathAnnotationKey           = "kubepose.healthcheck.http.path"
-	ContainerTypeLabelKey                      = "kubepose.container.type"
+	ContainerTypeAnnotationKey                 = "kubepose.container.type"
+	ConfigHmacKeyAnnotationKey                 = "kubepose.config.hmac-key"
+	SecretHmacKeyAnnotationKey                 = "kubepose.secret.hmac-key"
+	VolumeHmacKeyAnnotationKey                 = "kubepose.volume.hmac-key"
+	VolumeHostPathLabelKey                     = "kubepose.volume.hostPath"
+
+	// using a hmac key to be able to invalidate if we modify how an immutable volume/config/secret is shaped
+	volumeHmacKey    = "kubepose.volume.v1"
+	configHmacKey    = "kubepose.config.v1"
+	secretHmacKey    = "kubepose.secret.v1"
+	configDefaultKey = "content"
+	secretDefaultKey = "content"
 )
 
 func Convert(project *types.Project) (*Resources, error) {
@@ -61,17 +73,17 @@ func Convert(project *types.Project) (*Resources, error) {
 		}
 
 		// Handle standalone pods (non-Always restart policy)
-		if getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Labels[ContainerTypeLabelKey] != "init" {
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
 			pod := createPod(service)
 			pod.Spec.Containers = []corev1.Container{createContainer(service)}
 			updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
 			updatePodSpecWithConfigs(&pod.Spec, service, configMappings)
-			updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources, project)
+			updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources)
 			resources.Pods = append(resources.Pods, pod)
 			continue
 		}
 
-		groupName := service.Labels[ServiceGroupLabelKey]
+		groupName := service.Annotations[ServiceGroupAnnotationKey]
 		if groupName == "" {
 			groupName = service.Name // Use service name as group if not specified
 		}
@@ -91,7 +103,7 @@ func Convert(project *types.Project) (*Resources, error) {
 		// Find main services (not init)
 		var appServices, initServices []types.ServiceConfig
 		for _, svc := range services {
-			if svc.Labels[ContainerTypeLabelKey] == "init" {
+			if svc.Annotations[ContainerTypeAnnotationKey] == "init" {
 				initServices = append(initServices, svc)
 			} else {
 				appServices = append(appServices, svc)
@@ -117,7 +129,7 @@ func Convert(project *types.Project) (*Resources, error) {
 				for _, svc := range append(appServices, initServices...) {
 					updatePodSpecWithSecrets(&ds.Spec.Template.Spec, svc, secretMappings)
 					updatePodSpecWithConfigs(&ds.Spec.Template.Spec, svc, configMappings)
-					updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources, project)
+					updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources)
 				}
 				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
 				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
@@ -127,7 +139,7 @@ func Convert(project *types.Project) (*Resources, error) {
 				for _, svc := range append(appServices, initServices...) {
 					updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, svc, secretMappings)
 					updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, svc, configMappings)
-					updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources, project)
+					updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources)
 				}
 				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
 				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
@@ -183,7 +195,7 @@ func createContainer(service types.ServiceConfig) corev1.Container {
 	// (also known as side car containers)
 	// https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
 	var containerRestartPolicy *corev1.ContainerRestartPolicy
-	if service.Labels[ContainerTypeLabelKey] == "init" && getRestartPolicy(service) == corev1.RestartPolicyAlways {
+	if service.Annotations[ContainerTypeAnnotationKey] == "init" && getRestartPolicy(service) == corev1.RestartPolicyAlways {
 		containerRestartPolicy = ptr.To(corev1.ContainerRestartPolicyAlways)
 	}
 	return corev1.Container{
@@ -211,9 +223,11 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 			Kind:       "Pod",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        service.Name,
-			Annotations: service.Annotations,
-			Labels:      service.Labels,
+			Name: service.Name,
+			Annotations: mergeMaps(service.Annotations, map[string]string{
+				KubeposeVersionAnnotationKey: "TODO",
+			}),
+			Labels: service.Labels,
 		},
 		Spec: createPodSpec(service),
 	}
@@ -221,8 +235,8 @@ func createPod(service types.ServiceConfig) *corev1.Pod {
 
 func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.DaemonSet {
 	serviceName := service.Name
-	if service.Labels[ServiceGroupLabelKey] != "" {
-		serviceName = service.Labels[ServiceGroupLabelKey]
+	if service.Annotations[ServiceGroupAnnotationKey] != "" {
+		serviceName = service.Annotations[ServiceGroupAnnotationKey]
 	}
 
 	for _, ds := range resources.DaemonSets {
@@ -237,9 +251,11 @@ func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.
 			Kind:       "DaemonSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        serviceName,
-			Annotations: service.Annotations,
-			Labels:      service.Labels,
+			Name: serviceName,
+			Annotations: mergeMaps(service.Annotations, map[string]string{
+				KubeposeVersionAnnotationKey: "TODO",
+			}),
+			Labels: service.Labels,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: getUpdateStrategy(service),
@@ -250,7 +266,9 @@ func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: service.Annotations,
+					Annotations: mergeMaps(service.Annotations, map[string]string{
+						KubeposeVersionAnnotationKey: "TODO",
+					}),
 					Labels: mergeMaps(service.Labels, map[string]string{
 						ServiceSelectorLabelKey: service.Name,
 					}),
@@ -265,8 +283,8 @@ func createDaemonSet(resources *Resources, service types.ServiceConfig) *appsv1.
 
 func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1.Deployment {
 	serviceName := service.Name
-	if service.Labels[ServiceGroupLabelKey] != "" {
-		serviceName = service.Labels[ServiceGroupLabelKey]
+	if service.Annotations[ServiceGroupAnnotationKey] != "" {
+		serviceName = service.Annotations[ServiceGroupAnnotationKey]
 	}
 
 	for _, d := range resources.Deployments {
@@ -286,9 +304,11 @@ func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        serviceName,
-			Annotations: service.Annotations,
-			Labels:      service.Labels,
+			Name: serviceName,
+			Annotations: mergeMaps(service.Annotations, map[string]string{
+				KubeposeVersionAnnotationKey: "TODO",
+			}),
+			Labels: service.Labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
@@ -300,7 +320,9 @@ func createDeployment(resources *Resources, service types.ServiceConfig) *appsv1
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: service.Annotations,
+					Annotations: mergeMaps(service.Annotations, map[string]string{
+						KubeposeVersionAnnotationKey: "TODO",
+					}),
 					Labels: mergeMaps(service.Labels, map[string]string{
 						ServiceSelectorLabelKey: serviceName,
 					}),
@@ -343,8 +365,8 @@ func escapeEnvs(input []string) []string {
 
 func createService(service types.ServiceConfig) *corev1.Service {
 	serviceName := service.Name
-	if service.Labels[ServiceGroupLabelKey] != "" {
-		serviceName = service.Labels[ServiceGroupLabelKey]
+	if service.Annotations[ServiceGroupAnnotationKey] != "" {
+		serviceName = service.Annotations[ServiceGroupAnnotationKey]
 	}
 	// TODO support LoadBalancer, NodePort, ExternalName, ClusterIP
 	return &corev1.Service{
@@ -534,7 +556,7 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 		return corev1.RestartPolicyOnFailure
 	}
 
-	if service.Labels[ContainerTypeLabelKey] == "init" {
+	if service.Annotations[ContainerTypeAnnotationKey] == "init" {
 		// init containers default to on-failure policy
 		return corev1.RestartPolicyOnFailure
 	}

@@ -14,10 +14,6 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// using a hmac key to be able to invalidate if we modify how an immutable config is shaped
-const configsHmacKey = "kubepose.configs.v1"
-const configsDefaultKey = "content"
-
 type ConfigMapping struct {
 	Name     string
 	External bool
@@ -39,8 +35,8 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 		switch {
 		case config.Content != "":
 			content = []byte(config.Content)
-			_, shortHash = getContentHash(content, configsHmacKey)
-			filename = configsDefaultKey
+			_, shortHash = getContentHash(content, configHmacKey)
+			filename = configDefaultKey
 
 		case config.Environment != "":
 			value, ok := os.LookupEnv(config.Environment)
@@ -48,11 +44,11 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 				return nil, fmt.Errorf("config %s references non-existing environment variable %s", name, config.Environment)
 			}
 			content = []byte(value)
-			_, shortHash = getContentHash(content, configsHmacKey)
-			filename = configsDefaultKey
+			_, shortHash = getContentHash(content, configHmacKey)
+			filename = configDefaultKey
 
 		case config.File != "":
-			fileContent, fileHash, err := readFileWithShortHash(config.File, configsHmacKey)
+			fileContent, fileHash, err := readFileWithShortHash(config.File, configHmacKey)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read config file %s: %w", config.File, err)
 			}
@@ -76,9 +72,8 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 				Name:   k8sConfigName,
 				Labels: config.Labels,
 				Annotations: map[string]string{
-					"generated-from":            "kubepose",
-					"kubepose.original-name":    name,
-					"kubepose.configs.hmac-key": configsHmacKey,
+					KubeposeVersionAnnotationKey: "TODO",
+					ConfigHmacKeyAnnotationKey:   configHmacKey,
 				},
 			},
 			Immutable: ptr.To(true),
@@ -139,7 +134,7 @@ func updatePodSpecWithConfigs(spec *corev1.PodSpec, service types.ServiceConfig,
 					// For non-external configs, mount only the specific key
 					volume.VolumeSource.ConfigMap.Items = []corev1.KeyToPath{
 						{
-							Key:  configsDefaultKey,
+							Key:  configDefaultKey,
 							Path: filepath.Base(target),
 						},
 					}

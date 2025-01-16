@@ -1,22 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    kubepose.version: TODO
   creationTimestamp: null
   labels:
     kubepose.container.type: app
     kubepose.service.group: myapp
-  name: myapp
+  name: api
 spec:
   selector:
     matchLabels:
-      kubepose.service: myapp
+      kubepose.service: api
   strategy: {}
   template:
     metadata:
+      annotations:
+        kubepose.version: TODO
       creationTimestamp: null
       labels:
         kubepose.container.type: app
-        kubepose.service: myapp
+        kubepose.service: api
         kubepose.service.group: myapp
     spec:
       containers:
@@ -24,28 +28,40 @@ spec:
         imagePullPolicy: IfNotPresent
         name: api
         resources: {}
-      - image: nginx
-        imagePullPolicy: IfNotPresent
-        name: web
-        resources: {}
-        volumeMounts:
-        - mountPath: /run/secrets/secret
-          name: secret
-          readOnly: true
-          subPath: content
-      initContainers:
-      - args:
-        - echo
-        - migrate
-        image: alpine
-        imagePullPolicy: IfNotPresent
-        name: db-setup
-        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.version: TODO
+  creationTimestamp: null
+  labels:
+    kubepose.container.type: init
+    kubepose.service.group: myapp
+  name: logshipper
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: logshipper
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.version: TODO
+      creationTimestamp: null
+      labels:
+        kubepose.container.type: init
+        kubepose.service: logshipper
+        kubepose.service.group: myapp
+    spec:
+      containers:
       - image: fluentd
         imagePullPolicy: IfNotPresent
         name: logshipper
         resources: {}
-        restartPolicy: Always
         volumeMounts:
         - mountPath: /run/secrets/secret
           name: secret
@@ -55,7 +71,71 @@ spec:
       volumes:
       - name: secret
         secret:
-          secretName: secret-16e40588
+          secretName: secret-79f7063e
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.version: TODO
+  creationTimestamp: null
+  labels:
+    kubepose.service.group: myapp
+  name: web
+spec:
+  selector:
+    matchLabels:
+      kubepose.service: web
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.version: TODO
+      creationTimestamp: null
+      labels:
+        kubepose.service: web
+        kubepose.service.group: myapp
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: web
+        resources: {}
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: content
+      restartPolicy: Always
+      volumes:
+      - name: secret
+        secret:
+          secretName: secret-79f7063e
+status: {}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations:
+    kubepose.version: TODO
+  creationTimestamp: null
+  labels:
+    kubepose.container.type: init
+    kubepose.service.group: myapp
+  name: db-setup
+spec:
+  containers:
+  - args:
+    - echo
+    - migrate
+    image: alpine
+    imagePullPolicy: IfNotPresent
+    name: db-setup
+    resources: {}
+  restartPolicy: OnFailure
 status: {}
 
 ---
@@ -66,9 +146,8 @@ immutable: true
 kind: Secret
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.original-name: secret
-    kubepose.secrets.hmac-key: kubepose.secrets.v1
+    kubepose.secret.hmac-key: kubepose.secret.v1
+    kubepose.version: TODO
   creationTimestamp: null
-  name: secret-16e40588
+  name: secret-79f7063e
 type: Opaque
