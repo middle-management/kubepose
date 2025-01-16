@@ -52,7 +52,10 @@ func (t Transformer) processVolumes(project *types.Project, resources *Resources
 			delete(volume.Labels, VolumeStorageClassNameLabelKey)
 		}
 
-		var requests corev1.ResourceList
+		requests := corev1.ResourceList{
+			// default to 100Mi if not specified (same as kompose)
+			corev1.ResourceStorage: resource.MustParse("100Mi"),
+		}
 		if size, ok := volume.Labels[VolumeSizeLabelKey]; ok {
 			quantity, err := resource.ParseQuantity(size)
 			if err != nil {
