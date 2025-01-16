@@ -119,7 +119,9 @@ metadata:
 spec:
   accessModes:
   - ReadWriteOnce
-  resources: {}
+  resources:
+    requests:
+      storage: 100Mi
 status: {}
 
 ---
