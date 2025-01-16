@@ -303,38 +303,3 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 
 	return nil
 }
-
-func processTmpfs(tmpfs interface{}) ([]string, map[string]*resource.Quantity, error) {
-	var paths []string
-	sizes := make(map[string]*resource.Quantity)
-
-	switch v := tmpfs.(type) {
-	case []string:
-		paths = v
-	case types.StringList:
-		paths = v
-	case []interface{}:
-		for _, item := range v {
-			if str, ok := item.(string); ok {
-				paths = append(paths, str)
-			}
-		}
-	case map[string]interface{}:
-		for path, config := range v {
-			paths = append(paths, path)
-			if config != nil {
-				if cfg, ok := config.(map[string]interface{}); ok {
-					if size, ok := cfg["size"].(string); ok {
-						if quantity, err := resource.ParseQuantity(size); err == nil {
-							sizes[path] = &quantity
-						} else {
-							return nil, nil, fmt.Errorf("invalid tmpfs size %q for %s: %w", size, path, err)
-						}
-					}
-				}
-			}
-		}
-	}
-
-	return paths, sizes, nil
-}
