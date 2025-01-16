@@ -38,6 +38,12 @@ func TestConvert(t *testing.T) {
 		}, Env: map[string]string{
 			"KUBEPOSE_ENV_SECRET": "abc",
 		}, DryRun: TestRunKubectlDryRun},
+		{Name: "secrets/k8s+external+env.yaml", Options: project.Options{
+			Profiles: []string{"*"},
+		}, Env: map[string]string{
+			"KUBEPOSE_ENV_SECRET": "abc",
+			"COMPOSE_FILE":        "testdata/secrets/compose.yaml:testdata/secrets/compose.external.yaml",
+		}, DryRun: TestRunKubectlDryRun},
 		{Name: "simple/k8s.yaml", Options: project.Options{
 			Files:    []string{"testdata/simple/compose.yaml"},
 			Profiles: []string{"*"},
