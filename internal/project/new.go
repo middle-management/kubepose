@@ -19,8 +19,8 @@ func New(opts Options) (*types.Project, error) {
 		cli.WithOsEnv,
 		cli.WithConfigFileEnv,
 		cli.WithDefaultConfigPath,
+		cli.WithDefaultProfiles(opts.Profiles...),
 		cli.WithInterpolation(true),
-		cli.WithProfiles(opts.Profiles),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create compose options: %w", err)
