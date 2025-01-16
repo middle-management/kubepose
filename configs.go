@@ -19,7 +19,7 @@ type ConfigMapping struct {
 	External bool
 }
 
-func processConfigs(project *types.Project, resources *Resources) (map[string]ConfigMapping, error) {
+func (t Transformer) processConfigs(project *types.Project, resources *Resources) (map[string]ConfigMapping, error) {
 	configMapping := make(map[string]ConfigMapping)
 
 	for name, config := range project.Configs {
@@ -71,10 +71,9 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   k8sConfigName,
 				Labels: config.Labels,
-				Annotations: map[string]string{
-					KubeposeVersionAnnotationKey: "TODO",
-					ConfigHmacKeyAnnotationKey:   configHmacKey,
-				},
+				Annotations: mergeMaps(t.Annotations, map[string]string{
+					ConfigHmacKeyAnnotationKey: configHmacKey,
+				}),
 			},
 			Immutable: ptr.To(true),
 			Data: map[string]string{
@@ -88,7 +87,7 @@ func processConfigs(project *types.Project, resources *Resources) (map[string]Co
 	return configMapping, nil
 }
 
-func updatePodSpecWithConfigs(spec *corev1.PodSpec, service types.ServiceConfig, configMappings map[string]ConfigMapping) {
+func (t Transformer) updatePodSpecWithConfigs(spec *corev1.PodSpec, service types.ServiceConfig, configMappings map[string]ConfigMapping) {
 	// Track which containers need which configs
 	containerConfigs := make(map[string][]corev1.VolumeMount)
 

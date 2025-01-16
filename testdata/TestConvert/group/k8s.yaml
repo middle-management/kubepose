@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     kubepose.container.type: app
@@ -16,7 +16,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.container.type: app
@@ -36,7 +36,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     kubepose.container.type: init
@@ -50,7 +50,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.container.type: init
@@ -79,7 +79,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     kubepose.service.group: myapp
@@ -92,7 +92,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: web
@@ -120,7 +120,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     kubepose.container.type: init
@@ -147,7 +147,7 @@ kind: Secret
 metadata:
   annotations:
     kubepose.secret.hmac-key: kubepose.secret.v1
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: secret-79f7063e
 type: Opaque

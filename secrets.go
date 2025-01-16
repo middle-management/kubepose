@@ -23,7 +23,7 @@ type SecretMapping struct {
 	External bool
 }
 
-func processSecrets(project *types.Project, resources *Resources) (map[string]SecretMapping, error) {
+func (t Transformer) processSecrets(project *types.Project, resources *Resources) (map[string]SecretMapping, error) {
 	secretMapping := make(map[string]SecretMapping)
 
 	for name, secret := range project.Secrets {
@@ -60,10 +60,9 @@ func processSecrets(project *types.Project, resources *Resources) (map[string]Se
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   k8sSecretName,
 				Labels: secret.Labels,
-				Annotations: map[string]string{
-					KubeposeVersionAnnotationKey: "TODO",
-					SecretHmacKeyAnnotationKey:   secretHmacKey,
-				},
+				Annotations: mergeMaps(t.Annotations, map[string]string{
+					SecretHmacKeyAnnotationKey: secretHmacKey,
+				}),
 			},
 			// TODO type from label kubepose.secret-type or default to Opaque
 			Immutable: ptr.To(true),
@@ -96,7 +95,7 @@ func readFileWithShortHash(path string, hmacKey string) ([]byte, string, error) 
 	return content, hex.EncodeToString(hasher.Sum(nil))[0:8], nil
 }
 
-func updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig, secretMappings map[string]SecretMapping) {
+func (t Transformer) updatePodSpecWithSecrets(spec *corev1.PodSpec, service types.ServiceConfig, secretMappings map[string]SecretMapping) {
 	// Track which containers need which secrets
 	containerSecrets := make(map[string][]corev1.VolumeMount)
 

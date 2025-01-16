@@ -6,7 +6,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: env_config-290a46c2
 
@@ -20,7 +20,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: file_config-123b70c3
 
@@ -37,7 +37,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: my_config-c06e3902
 
@@ -46,7 +46,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: app
 spec:
@@ -57,7 +57,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: app

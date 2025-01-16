@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     gcr.io/google-containers/: BAR
@@ -15,7 +15,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         gcr.io/google-containers/: BAR
@@ -34,7 +34,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   labels:
     foo1: gcr.io/google-containers/
@@ -50,7 +50,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         foo1: gcr.io/google-containers/
@@ -72,7 +72,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: rep
 spec:
@@ -83,7 +83,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: rep
@@ -101,7 +101,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: web
 spec:
@@ -112,7 +112,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: web

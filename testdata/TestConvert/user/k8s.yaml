@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: app
 spec:
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: app

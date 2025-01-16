@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: web
 spec:
@@ -15,7 +15,7 @@ spec:
     metadata:
       annotations:
         kubepose.service.expose: web.k8s.orb.local
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: web
@@ -37,6 +37,7 @@ kind: Ingress
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
+    testing: abc
   creationTimestamp: null
   name: web
 spec:

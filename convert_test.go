@@ -100,7 +100,12 @@ func TestConvert(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			resources, err := kubepose.Convert(project)
+			transformer := kubepose.Transformer{
+				Annotations: map[string]string{
+					"testing": "abc",
+				},
+			}
+			resources, err := transformer.Convert(project)
 			if err != nil {
 				t.Fatal(err)
 			}

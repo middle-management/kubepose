@@ -24,7 +24,7 @@ type VolumeMapping struct {
 	TmpfsSize     *resource.Quantity
 }
 
-func processVolumes(project *types.Project, resources *Resources) (map[string]VolumeMapping, error) {
+func (t Transformer) processVolumes(project *types.Project, resources *Resources) (map[string]VolumeMapping, error) {
 	volumeMappings := make(map[string]VolumeMapping)
 
 	for name, volume := range project.Volumes {
@@ -50,11 +50,9 @@ func processVolumes(project *types.Project, resources *Resources) (map[string]Vo
 				Kind:       "PersistentVolumeClaim",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   name,
-				Labels: volume.Labels,
-				Annotations: map[string]string{
-					KubeposeVersionAnnotationKey: "TODO",
-				},
+				Name:        name,
+				Labels:      volume.Labels,
+				Annotations: t.Annotations,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				// TODO get StorageClassName from label "kubepose.volume.storage-class-name"?
@@ -85,7 +83,7 @@ func isFilePath(path string) bool {
 	return !info.IsDir()
 }
 
-func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources) error {
+func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig, volumeMappings map[string]VolumeMapping, resources *Resources) error {
 	// Track which containers need which volumes
 	containerVolumes := make(map[string][]corev1.VolumeMount)
 
@@ -155,10 +153,9 @@ func updatePodSpecWithVolumes(spec *corev1.PodSpec, service types.ServiceConfig,
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   configMapName,
 						Labels: service.Labels,
-						Annotations: map[string]string{
-							KubeposeVersionAnnotationKey: "TODO",
-							VolumeHmacKeyAnnotationKey:   volumeHmacKey,
-						},
+						Annotations: mergeMaps(t.Annotations, map[string]string{
+							VolumeHmacKeyAnnotationKey: volumeHmacKey,
+						}),
 					},
 					Data: map[string]string{
 						mountPath: string(content),

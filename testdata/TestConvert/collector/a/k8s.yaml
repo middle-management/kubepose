@@ -26,8 +26,8 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.version: TODO
     kubepose.volume.hmac-key: kubepose.volume.v1
+    testing: abc
   creationTimestamp: null
   name: collector-0b038390
 
@@ -37,7 +37,7 @@ kind: DaemonSet
 metadata:
   annotations:
     kubepose.service.serviceAccountName: otelcontribcol
-    kubepose.version: TODO
+    testing: abc
   creationTimestamp: null
   name: collector
 spec:
@@ -48,7 +48,7 @@ spec:
     metadata:
       annotations:
         kubepose.service.serviceAccountName: otelcontribcol
-        kubepose.version: TODO
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: collector
