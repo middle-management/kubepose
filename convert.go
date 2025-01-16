@@ -429,13 +429,13 @@ func getResourceRequirements(service types.ServiceConfig) corev1.ResourceRequire
 	if service.Deploy != nil {
 		if service.Deploy.Resources.Limits != nil {
 			resources.Limits = corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%dm", int(service.Deploy.Resources.Limits.NanoCPUs.Value())/1e6)),
+				corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%dm", int(service.Deploy.Resources.Limits.NanoCPUs.Value()*1000))),
 				corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dMi", service.Deploy.Resources.Limits.MemoryBytes/1024/1024)),
 			}
 		}
 		if service.Deploy.Resources.Reservations != nil {
 			resources.Requests = corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%dm", int(service.Deploy.Resources.Reservations.NanoCPUs.Value())/1e6)),
+				corev1.ResourceCPU:    resource.MustParse(fmt.Sprintf("%dm", int(service.Deploy.Resources.Reservations.NanoCPUs.Value()*1000))),
 				corev1.ResourceMemory: resource.MustParse(fmt.Sprintf("%dMi", service.Deploy.Resources.Reservations.MemoryBytes/1024/1024)),
 			}
 		}
