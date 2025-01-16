@@ -32,6 +32,8 @@ const (
 	SecretHmacKeyAnnotationKey                 = "kubepose.secret.hmac-key"
 	VolumeHmacKeyAnnotationKey                 = "kubepose.volume.hmac-key"
 	VolumeHostPathLabelKey                     = "kubepose.volume.hostPath"
+	VolumeStorageClassNameLabelKey             = "kubepose.volume.storageClassName"
+	VolumeSizeLabelKey                         = "kubepose.volume.size"
 
 	// using a hmac key to be able to invalidate if we modify how an immutable volume/config/secret is shaped
 	volumeHmacKey    = "kubepose.volume.v1"

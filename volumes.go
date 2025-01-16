@@ -43,6 +43,28 @@ func (t Transformer) processVolumes(project *types.Project, resources *Resources
 			IsConfigMap: false,
 		}
 
+		annotations := map[string]string{}
+
+		var storageClassName *string
+		if storageClassNameLabel, ok := volume.Labels[VolumeStorageClassNameLabelKey]; ok {
+			storageClassName = &storageClassNameLabel
+			annotations[VolumeStorageClassNameLabelKey] = storageClassNameLabel
+			delete(volume.Labels, VolumeStorageClassNameLabelKey)
+		}
+
+		var requests corev1.ResourceList
+		if size, ok := volume.Labels[VolumeSizeLabelKey]; ok {
+			quantity, err := resource.ParseQuantity(size)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse volume size %q: %w", size, err)
+			}
+			requests = corev1.ResourceList{
+				corev1.ResourceStorage: quantity,
+			}
+			annotations[VolumeSizeLabelKey] = size
+			delete(volume.Labels, VolumeSizeLabelKey)
+		}
+
 		// Create PersistentVolumeClaim
 		pvc := &corev1.PersistentVolumeClaim{
 			TypeMeta: metav1.TypeMeta{
@@ -52,19 +74,15 @@ func (t Transformer) processVolumes(project *types.Project, resources *Resources
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
 				Labels:      volume.Labels,
-				Annotations: t.Annotations,
+				Annotations: mergeMaps(annotations, t.Annotations),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				// TODO get StorageClassName from label "kubepose.volume.storage-class-name"?
-
+				StorageClassName: storageClassName,
 				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
 				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						// TODO get from label "kubepose.volume.size"?
-						corev1.ResourceStorage: resource.MustParse("10Gi"),
-					},
+					Requests: requests,
 				},
 			},
 		}
