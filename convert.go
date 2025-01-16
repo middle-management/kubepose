@@ -26,7 +26,8 @@ const (
 	ServiceIgnoreAnnotationKey                 = "kubepose.service.ignore"
 	ServiceExposeAnnotationKey                 = "kubepose.service.expose"
 	ServiceExposeIngressClassNameAnnotationKey = "kubepose.service.expose.ingressClassName"
-	HealthcheckHttpPathAnnotationKey           = "kubepose.healthcheck.http.path"
+	HealthcheckHttpGetPathAnnotationKey        = "kubepose.healthcheck.http_get.path"
+	HealthcheckHttpGetPortAnnotationKey        = "kubepose.healthcheck.http_get.port"
 	ContainerTypeAnnotationKey                 = "kubepose.container.type"
 	ConfigHmacKeyAnnotationKey                 = "kubepose.config.hmac-key"
 	SecretHmacKeyAnnotationKey                 = "kubepose.secret.hmac-key"
@@ -579,14 +580,14 @@ func (t Transformer) getImagePullPolicy(service types.ServiceConfig) corev1.Pull
 }
 
 func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *corev1.Probe) {
-	if service.HealthCheck == nil || service.HealthCheck.Disable {
+	if service.HealthCheck != nil && service.HealthCheck.Disable {
 		return nil, nil
 	}
 
 	var probe *corev1.Probe
 
 	// Convert test command
-	if len(service.HealthCheck.Test) > 0 {
+	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
 		// Handle different formats of test
 		var command []string
 		switch service.HealthCheck.Test[0] {
@@ -605,7 +606,7 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		}
 	}
 
-	if probe != nil {
+	if probe != nil && service.HealthCheck != nil {
 		// Convert timing parameters
 		if service.HealthCheck.Interval != nil {
 			probe.PeriodSeconds = int32(time.Duration(*service.HealthCheck.Interval).Seconds())
@@ -626,12 +627,19 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 	}
 
 	// Check for HTTP-specific health check annotations
-	if path, ok := service.Annotations[HealthcheckHttpPathAnnotationKey]; ok {
+	if path, ok := service.Annotations[HealthcheckHttpGetPathAnnotationKey]; ok {
+		httpGetPort := getFirstPort(service)
+		if port, ok := service.Annotations[HealthcheckHttpGetPortAnnotationKey]; ok {
+			if p, err := strconv.Atoi(port); err == nil {
+				httpGetPort = p
+			}
+		}
+
 		httpProbe := &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: path,
-					Port: intstr.FromInt(getFirstPort(service)),
+					Port: intstr.FromInt(httpGetPort),
 				},
 			},
 		}
@@ -647,6 +655,8 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		liveness = httpProbe
 		readiness = httpProbe.DeepCopy()
 	}
+
+	// TODO TCP and GRPC health checks
 
 	return liveness, readiness
 }
