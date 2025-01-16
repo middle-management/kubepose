@@ -1,6 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    testing: abc
   creationTimestamp: null
   name: redis-leader
 spec:
@@ -10,6 +12,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: redis-leader
@@ -21,7 +25,13 @@ spec:
         ports:
         - containerPort: 6379
           protocol: TCP
-        resources: {}
+        resources:
+          limits:
+            cpu: "2"
+            memory: 2000Mi
+          requests:
+            cpu: "1"
+            memory: 1Gi
       restartPolicy: Always
 status: {}
 
@@ -29,6 +39,8 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    testing: abc
   creationTimestamp: null
   name: web
 spec:
@@ -38,6 +50,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: web

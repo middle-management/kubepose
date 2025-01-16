@@ -20,11 +20,10 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    generated-from: kubepose
-    kubepose.volume.hmac-key: kubepose.volumes.v1
-    kubepose.volume.source: b/config.yaml
+    kubepose.volume.hmac-key: kubepose.volume.v1
+    testing: abc
   creationTimestamp: null
-  name: collector-4eb5a9b6
+  name: collector-c3efbb8a
 
 ---
 apiVersion: apps/v1
@@ -32,6 +31,7 @@ kind: DaemonSet
 metadata:
   annotations:
     kubepose.service.serviceAccountName: otelcontribcol
+    testing: abc
   creationTimestamp: null
   name: collector
 spec:
@@ -42,6 +42,7 @@ spec:
     metadata:
       annotations:
         kubepose.service.serviceAccountName: otelcontribcol
+        testing: abc
       creationTimestamp: null
       labels:
         kubepose.service: collector
@@ -63,7 +64,7 @@ spec:
         resources: {}
         volumeMounts:
         - mountPath: /etc/otelcol-contrib/config.yaml
-          name: collector-4eb5a9b6
+          name: collector-c3efbb8a
           readOnly: true
           subPath: config.yaml
         - mountPath: /var/log/pods
@@ -73,8 +74,8 @@ spec:
       serviceAccountName: otelcontribcol
       volumes:
       - configMap:
-          name: collector-4eb5a9b6
-        name: collector-4eb5a9b6
+          name: collector-c3efbb8a
+        name: collector-c3efbb8a
       - hostPath:
           path: /var/log/pods
         name: pod-logs

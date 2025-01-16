@@ -22,7 +22,13 @@ func (cmd *Convert) Run() error {
 		return fmt.Errorf("unable to load files: %w", err)
 	}
 
-	resources, err := kubepose.Convert(project)
+	transformer := kubepose.Transformer{
+		Annotations: map[string]string{
+			kubepose.KubeposeVersionAnnotationKey: getVersion(),
+		},
+	}
+
+	resources, err := transformer.Convert(project)
 	if err != nil {
 		return fmt.Errorf("unable to convert: %w", err)
 	}
