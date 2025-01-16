@@ -9,8 +9,8 @@ import (
 )
 
 type Convert struct {
-	Files    []string `name:"file" short:"f" default:"compose.yaml" desc:"Compose configuration files"` // []string{"compose.yaml"}
-	Profiles []string `name:"profile" default:"*" desc:"Specify a profile to enable"`                   // []string{"*"}
+	Files    []string `name:"file" short:"f" desc:"Compose configuration files"` // []string{"compose.yaml"}
+	Profiles []string `name:"profile" desc:"Specify a profile to enable"`        // []string{"*"}
 }
 
 func (cmd *Convert) Run() error {
