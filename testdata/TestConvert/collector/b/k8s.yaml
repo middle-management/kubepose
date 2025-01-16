@@ -9,7 +9,12 @@ data:
     exporters:
       debug:
         verbosity: detailed
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
     service:
+      extensions:
+        - health_check
       pipelines:
         traces:
           receivers:
@@ -23,13 +28,15 @@ metadata:
     kubepose.volume.hmac-key: kubepose.volume.v1
     testing: abc
   creationTimestamp: null
-  name: collector-c3efbb8a
+  name: collector-84d3dd30
 
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   annotations:
+    kubepose.healthcheck.http_get.path: /
+    kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
     testing: abc
   creationTimestamp: null
@@ -41,6 +48,8 @@ spec:
   template:
     metadata:
       annotations:
+        kubepose.healthcheck.http_get.path: /
+        kubepose.healthcheck.http_get.port: "13133"
         kubepose.service.serviceAccountName: otelcontribcol
         testing: abc
       creationTimestamp: null
@@ -55,16 +64,24 @@ spec:
           value: default
         image: otel/opentelemetry-collector-contrib:0.116.1
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 13133
         name: collector
         ports:
         - containerPort: 4317
           protocol: TCP
         - containerPort: 4318
           protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 13133
         resources: {}
         volumeMounts:
         - mountPath: /etc/otelcol-contrib/config.yaml
-          name: collector-c3efbb8a
+          name: collector-84d3dd30
           readOnly: true
           subPath: config.yaml
         - mountPath: /var/log/pods
@@ -74,8 +91,8 @@ spec:
       serviceAccountName: otelcontribcol
       volumes:
       - configMap:
-          name: collector-c3efbb8a
-        name: collector-c3efbb8a
+          name: collector-84d3dd30
+        name: collector-84d3dd30
       - hostPath:
           path: /var/log/pods
         name: pod-logs
@@ -91,6 +108,8 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
+    kubepose.healthcheck.http_get.path: /
+    kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: collector

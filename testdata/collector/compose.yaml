@@ -1,8 +1,6 @@
 services:
   collector:
     image: otel/opentelemetry-collector-contrib:0.116.1
-    healthcheck:
-      disable: false
     environment:
       K8S_NAMESPACE: ${SERVICE_NAMESPACE:-default}
       K8S_LOG_PATH: /var/log/pods/${SERVICE_NAMESPACE:-default}_*/*/*.log
@@ -10,6 +8,8 @@ services:
       mode: global
     annotations:
       kubepose.service.serviceAccountName: otelcontribcol
+      kubepose.healthcheck.http_get.path: /
+      kubepose.healthcheck.http_get.port: 13133
     volumes:
       - ./${CONFIG:-a}/config.yaml:/etc/otelcol-contrib/config.yaml
       - pod-logs:/var/log/pods
