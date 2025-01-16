@@ -83,6 +83,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 |---------|:------:|-------------|
 | Image & Tags | ✅ | Full support for image references |
 | Commands | ✅ | Both `command` and `entrypoint` |
+| Update Strategies | ✅ | Configurable update behavior |
 | Environment | ✅ | Variables and values |
 | Working Directory | ✅ | Via `working_dir` |
 | Shell Access | ✅ | `stdin_open` and `tty` |
@@ -148,6 +149,64 @@ Key unsupported features include:
 | ✅ | Fully Supported |
 | 🚧 | Coming Soon |
 | ❌ | Not Supported |
+
+
+### Update Strategies
+
+kubepose supports Docker Compose's `update_config` for controlling how services are updated:
+
+```yaml
+services:
+  web:
+    deploy:
+      update_config:
+        parallelism: 2     # How many containers to update at once
+        order: start-first # Update strategy: start-first, stop-first
+        delay: 10s        # Minimum time between updates
+        monitor: 60s      # Time to monitor for failure
+```
+
+The configuration maps to Kubernetes deployment strategies as follows:
+
+| Compose Config | Deployment | DaemonSet | Description |
+|---------------|------------|-----------|-------------|
+| `order: start-first` | RollingUpdate with `maxUnavailable: 0` | RollingUpdate with `maxSurge` | Start new pods before stopping old |
+| `order: stop-first` | Recreate | RollingUpdate with `maxUnavailable` | Stop old pods before starting new |
+| `parallelism` | `maxSurge`/`maxUnavailable` | `maxSurge`/`maxUnavailable` | Number of pods updated at once |
+| `delay` | `minReadySeconds` | `minReadySeconds` | Time between updates |
+| `monitor` | `progressDeadlineSeconds` | N/A | Time to monitor for failures |
+
+Example configurations:
+
+```yaml
+# Rolling update that starts new pods first
+services:
+  web:
+    deploy:
+      update_config:
+        order: start-first
+        parallelism: 2
+
+# Stop all pods before starting new ones
+services:
+  db:
+    deploy:
+      update_config:
+        order: stop-first
+
+# Gradual rollout with monitoring
+services:
+  api:
+    deploy:
+      update_config:
+        parallelism: 1
+        delay: 30s
+        monitor: 60s
+```
+
+Note that some aspects of Docker Compose's update configuration don't have direct equivalents in Kubernetes:
+- `failure_action` is handled differently through Kubernetes' native deployment controller
+- `max_failure_ratio` has no direct equivalent
 
 ## Contributing
 
