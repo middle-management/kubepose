@@ -64,11 +64,11 @@ func (t Transformer) processSecrets(project *types.Project, resources *Resources
 					SecretHmacKeyAnnotationKey: secretHmacKey,
 				}),
 			},
-			// TODO type from label kubepose.secret-type or default to Opaque
 			Immutable: ptr.To(true),
-			Type:      corev1.SecretTypeOpaque,
+			// TODO type from label kubepose.secret-type or default to Opaque
+			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
-				secretDefaultKey: content,
+				name: content,
 			},
 		}
 
@@ -144,7 +144,7 @@ func (t Transformer) updatePodSpecWithSecrets(spec *corev1.PodSpec, service type
 
 			// Only use SubPath for non-external secrets
 			if !mapping.External {
-				volumeMount.SubPath = secretDefaultKey
+				volumeMount.SubPath = volumeName
 			}
 
 			// Add mount to container's secret mounts
