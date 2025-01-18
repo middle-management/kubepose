@@ -41,7 +41,6 @@ const (
 	configHmacKey    = "kubepose.config.v1"
 	secretHmacKey    = "kubepose.secret.v1"
 	configDefaultKey = "content"
-	secretDefaultKey = "content"
 )
 
 type Transformer struct {
