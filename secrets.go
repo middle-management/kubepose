@@ -134,6 +134,8 @@ func (t Transformer) updatePodSpecWithSecrets(spec *corev1.PodSpec, service type
 			target := serviceSecret.Target
 			if target == "" {
 				target = filepath.Join("/run/secrets", serviceSecret.Source)
+			} else if !filepath.IsAbs(target) {
+				target = filepath.Join("/run/secrets", target)
 			}
 
 			volumeMount := corev1.VolumeMount{
