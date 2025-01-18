@@ -9,7 +9,6 @@ import (
 )
 
 type Version struct {
-	version string
 }
 
 // this is set using `-ldflags "-X main.version=1.2.3"`
@@ -18,15 +17,15 @@ var version string
 const defaultVersion = "devel"
 
 func (cmd *Version) Run() error {
-	if cmd.version != "" {
-		_, err := fmt.Fprintln(os.Stdout, cmd.version)
-		return err
-	}
 	_, err := fmt.Fprintln(os.Stdout, getVersion())
 	return err
 }
 
 func getVersion() string {
+	if version != "" {
+		return version
+	}
+
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
 		return defaultVersion
