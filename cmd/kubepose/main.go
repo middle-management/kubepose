@@ -10,7 +10,7 @@ import (
 func main() {
 	cmd := argp.NewCmd(&Main{}, "kubepose")
 	cmd.AddCmd(&Convert{}, "convert", "Convert compose spec to kubernetes resources")
-	cmd.AddCmd(&Version{version: version}, "version", "Command version")
+	cmd.AddCmd(&Version{}, "version", "Command version")
 	cmd.Error = log.New(os.Stderr, "", 0)
 	cmd.Parse()
 }

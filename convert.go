@@ -588,10 +588,6 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 
 	// Convert test command
 	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
-		// Handle different formats of test
-		for _, test := range service.HealthCheck.Test {
-			fmt.Printf("- %v\n", test)
-		}
 		var command []string
 		switch service.HealthCheck.Test[0] {
 		case "CMD", "CMD-SHELL":
@@ -599,7 +595,6 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		default:
 			command = service.HealthCheck.Test
 		}
-		fmt.Printf("command: %v\n", command)
 		if len(command) == 1 {
 			command = splitCommand(command[0])
 		}

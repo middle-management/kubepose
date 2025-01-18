@@ -9,19 +9,12 @@ import (
 )
 
 type Version struct {
-	version string
 }
 
 // this is set using `-ldflags "-X main.version=1.2.3"`
-var version string
-
-const defaultVersion = "devel"
+var version = "devel"
 
 func (cmd *Version) Run() error {
-	if cmd.version != "" {
-		_, err := fmt.Fprintln(os.Stdout, cmd.version)
-		return err
-	}
 	_, err := fmt.Fprintln(os.Stdout, getVersion())
 	return err
 }
@@ -29,7 +22,7 @@ func (cmd *Version) Run() error {
 func getVersion() string {
 	buildInfo, ok := debug.ReadBuildInfo()
 	if !ok {
-		return defaultVersion
+		return version
 	}
 
 	var vcs struct {
@@ -53,7 +46,7 @@ func getVersion() string {
 	}
 
 	var b strings.Builder
-	b.WriteString(defaultVersion)
+	b.WriteString(version)
 	b.WriteString(" (")
 	if vcs.revision == "" || len(vcs.revision) < 12 {
 		b.WriteString("unknown revision")
