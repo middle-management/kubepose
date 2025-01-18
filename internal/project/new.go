@@ -13,7 +13,7 @@ type Options struct {
 	Profiles []string
 }
 
-func New(opts Options) (*types.Project, error) {
+func New(ctx context.Context, opts Options) (*types.Project, error) {
 	projectOptions, err := cli.NewProjectOptions(
 		opts.Files,
 		cli.WithOsEnv,
@@ -26,7 +26,7 @@ func New(opts Options) (*types.Project, error) {
 		return nil, fmt.Errorf("unable to create compose options: %w", err)
 	}
 
-	project, err := cli.ProjectFromOptions(context.Background(), projectOptions)
+	project, err := projectOptions.LoadProject(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("unable to load files: %w", err)
 	}

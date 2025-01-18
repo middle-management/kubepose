@@ -7,11 +7,13 @@ import (
 	"github.com/tdewolff/argp"
 )
 
+var logger = log.New(os.Stderr, "", 0)
+
 func main() {
 	cmd := argp.NewCmd(&Main{}, "kubepose")
 	cmd.AddCmd(&Convert{}, "convert", "Convert compose spec to kubernetes resources")
 	cmd.AddCmd(&Version{}, "version", "Command version")
-	cmd.Error = log.New(os.Stderr, "", 0)
+	cmd.Error = logger
 	cmd.Parse()
 }
 
