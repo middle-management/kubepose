@@ -21,6 +21,7 @@ import (
 type SecretMapping struct {
 	Name     string
 	External bool
+	SubPath  string
 }
 
 func (t Transformer) processSecrets(project *types.Project, resources *Resources) (map[string]SecretMapping, error) {
@@ -45,12 +46,19 @@ func (t Transformer) processSecrets(project *types.Project, resources *Resources
 			content = fileContent
 			shortHash = fileHash
 		} else if secret.External {
-			secretMapping[name] = SecretMapping{Name: secret.Name, External: true}
+			secretMapping[name] = SecretMapping{
+				Name:     secret.Name,
+				External: true,
+				SubPath:  secret.Labels[SecretSubPathLabelKey],
+			}
 			continue
 		}
 
 		k8sSecretName := fmt.Sprintf("%s-%s", name, shortHash)
-		secretMapping[name] = SecretMapping{Name: k8sSecretName}
+		secretMapping[name] = SecretMapping{
+			Name:    k8sSecretName,
+			SubPath: name,
+		}
 
 		k8sSecret := corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -131,22 +139,18 @@ func (t Transformer) updatePodSpecWithSecrets(spec *corev1.PodSpec, service type
 			}
 
 			// Create volume mount
-			target := serviceSecret.Target
-			if target == "" {
-				target = filepath.Join("/run/secrets", serviceSecret.Source)
-			} else if !filepath.IsAbs(target) {
-				target = filepath.Join("/run/secrets", target)
+			mountPath := serviceSecret.Target
+			if mountPath == "" {
+				mountPath = filepath.Join("/run/secrets", serviceSecret.Source)
+			} else if !filepath.IsAbs(mountPath) {
+				mountPath = filepath.Join("/run/secrets", mountPath)
 			}
 
 			volumeMount := corev1.VolumeMount{
 				Name:      volumeName,
-				MountPath: target,
 				ReadOnly:  true,
-			}
-
-			// Only use SubPath for non-external secrets
-			if !mapping.External {
-				volumeMount.SubPath = volumeName
+				MountPath: mountPath,
+				SubPath:   mapping.SubPath,
 			}
 
 			// Add mount to container's secret mounts
