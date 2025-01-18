@@ -589,12 +589,19 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 	// Convert test command
 	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
 		// Handle different formats of test
+		for _, test := range service.HealthCheck.Test {
+			fmt.Printf("- %v\n", test)
+		}
 		var command []string
 		switch service.HealthCheck.Test[0] {
 		case "CMD", "CMD-SHELL":
 			command = service.HealthCheck.Test[1:]
 		default:
 			command = service.HealthCheck.Test
+		}
+		fmt.Printf("command: %v\n", command)
+		if len(command) == 1 {
+			command = splitCommand(command[0])
 		}
 
 		probe = &corev1.Probe{
@@ -825,4 +832,34 @@ func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext 
 		FSGroup:            fsGroup,
 		SupplementalGroups: supplementalGroups,
 	}
+}
+
+func splitCommand(cmd string) []string {
+	var args []string
+	var current string
+	var inQuotes bool
+
+	for _, r := range cmd {
+		switch r {
+		case '"':
+			inQuotes = !inQuotes
+		case ' ':
+			if !inQuotes {
+				if current != "" {
+					args = append(args, current)
+					current = ""
+				}
+			} else {
+				current += string(r)
+			}
+		default:
+			current += string(r)
+		}
+	}
+
+	if current != "" {
+		args = append(args, current)
+	}
+
+	return args
 }
