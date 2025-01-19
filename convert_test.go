@@ -2,6 +2,7 @@ package kubepose_test
 
 import (
 	"bytes"
+	"context"
 	"os/exec"
 
 	"testing"
@@ -102,7 +103,7 @@ func TestConvert(t *testing.T) {
 				t.Parallel()
 			}
 
-			project, err := project.New(tt.Options)
+			project, err := project.New(context.TODO(), tt.Options)
 			if err != nil {
 				t.Fatal(err)
 			}
