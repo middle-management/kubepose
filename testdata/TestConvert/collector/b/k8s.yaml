@@ -26,6 +26,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.volume.hmac-key: kubepose.volume.v1
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -39,6 +40,7 @@ metadata:
     kubepose.healthcheck.http_get.path: /
     kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -53,6 +55,7 @@ spec:
         kubepose.healthcheck.http_get.path: /
         kubepose.healthcheck.http_get.port: "13133"
         kubepose.service.serviceAccountName: otelcontribcol
+        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: collector
@@ -112,6 +115,7 @@ metadata:
     kubepose.healthcheck.http_get.path: /
     kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc

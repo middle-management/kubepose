@@ -111,6 +111,9 @@ func TestConvert(t *testing.T) {
 				Labels: map[string]string{
 					"testing": "abc",
 				},
+				Annotations: map[string]string{
+					"testing": "def",
+				},
 			}
 			resources, err := transformer.Convert(project)
 			if err != nil {

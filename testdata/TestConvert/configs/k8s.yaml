@@ -6,6 +6,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -21,6 +22,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -39,6 +41,7 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.config.hmac-key: kubepose.config.v1
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -48,6 +51,8 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    testing: def
   creationTimestamp: null
   labels:
     testing: abc
@@ -59,6 +64,8 @@ spec:
   strategy: {}
   template:
     metadata:
+      annotations:
+        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: app
