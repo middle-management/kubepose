@@ -65,6 +65,20 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		return nil, fmt.Errorf("error processing volumes: %w", err)
 	}
 
+	// Create a map to track created service accounts to avoid duplicates
+	createdServiceAccounts := make(map[string]bool)
+
+	// Process service accounts first
+	for _, service := range project.Services {
+		if saName, ok := service.Annotations[ServiceAccountNameAnnotationKey]; ok && saName != "" {
+			if !createdServiceAccounts[saName] {
+				resources.ServiceAccounts = append(resources.ServiceAccounts,
+					t.createServiceAccount(saName, service))
+				createdServiceAccounts[saName] = true
+			}
+		}
+	}
+
 	// Group services by kubepose.service.group
 	groups := make(map[string][]types.ServiceConfig)
 	for _, service := range project.Services {
@@ -326,6 +340,20 @@ func (t Transformer) createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 		RestartPolicy:      getRestartPolicy(service),
 		SecurityContext:    getSecurityContext(service),
 		ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
+	}
+}
+
+func (t Transformer) createServiceAccount(name string, service types.ServiceConfig) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ServiceAccount",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Annotations: mergeMaps(service.Annotations, t.Annotations),
+			Labels:      service.Labels,
+		},
 	}
 }
 
