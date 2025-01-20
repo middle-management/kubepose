@@ -123,6 +123,11 @@ func TestConvert(t *testing.T) {
 			}
 			test.Snapshot(t, buf.Bytes())
 
+			if testing.Short() {
+				t.Log("skipping kubectl and docker compose tests in short mode")
+				return
+			}
+
 			if tt.DryRun&TestRunKubectlDryRun != 0 {
 				cmd := exec.Command("kubectl", "apply", "-f=-", "--dry-run=client")
 				cmd.Stdin = buf
