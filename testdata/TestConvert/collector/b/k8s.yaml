@@ -127,3 +127,15 @@ spec:
     kubepose.service: collector
 status:
   loadBalancer: {}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    kubepose.healthcheck.http_get.path: /
+    kubepose.healthcheck.http_get.port: "13133"
+    kubepose.service.serviceAccountName: otelcontribcol
+    testing: abc
+  creationTimestamp: null
+  name: otelcontribcol

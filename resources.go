@@ -23,6 +23,7 @@ type Resources struct {
 	Deployments            []*appsv1.Deployment
 	Ingresses              []*networkingv1.Ingress
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
+	ServiceAccounts        []*corev1.ServiceAccount
 }
 
 type k8sObject interface {
@@ -40,6 +41,7 @@ func toObjects[T k8sObject](items []T) []k8sObject {
 
 func (r *Resources) Write(writer io.Writer) error {
 	var items []k8sObject
+	items = append(items, toObjects(r.ServiceAccounts)...)
 	items = append(items, toObjects(r.ConfigMaps)...)
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.DaemonSets)...)
