@@ -76,8 +76,8 @@ func (t Transformer) processVolumes(project *types.Project, resources *Resources
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name,
-				Labels:      volume.Labels,
 				Annotations: mergeMaps(annotations, t.Annotations),
+				Labels:      mergeMaps(volume.Labels, t.Labels),
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				StorageClassName: storageClassName,
@@ -173,7 +173,7 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:   configMapName,
-						Labels: service.Labels,
+						Labels: mergeMaps(service.Labels, t.Labels),
 						Annotations: mergeMaps(t.Annotations, map[string]string{
 							VolumeHmacKeyAnnotationKey: volumeHmacKey,
 						}),

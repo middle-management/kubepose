@@ -7,6 +7,7 @@ toolchain go1.23.4
 require (
 	github.com/compose-spec/compose-go/v2 v2.4.7
 	github.com/google/go-cmp v0.6.0
+	github.com/sirupsen/logrus v1.9.0
 	github.com/tdewolff/argp v0.0.0-20240126212256-acdb2fb50090
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
@@ -29,7 +30,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
