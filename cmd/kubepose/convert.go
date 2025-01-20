@@ -39,7 +39,7 @@ func (cmd *Convert) Run() error {
 
 	transformer := kubepose.Transformer{
 		Labels: map[string]string{
-			kubepose.AppManagedByLabelKey: "kubepose " + getVersion(),
+			"app.kubernetes.io/managed-by": "kubepose " + getVersion(),
 		},
 	}
 

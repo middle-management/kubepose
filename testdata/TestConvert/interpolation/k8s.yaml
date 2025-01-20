@@ -1,12 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: def
   creationTimestamp: null
   labels:
     gcr.io/google-containers/: BAR
-    testing: abc
   name: bar
 spec:
   selector:
@@ -15,8 +12,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: bar
@@ -34,15 +29,12 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: def
   creationTimestamp: null
   labels:
     foo1: gcr.io/google-containers/
     foo2: gcr.io/google-containers/
     foo3: default
     foo4: gcr.io/google-containers/
-    testing: abc
   name: foo
 spec:
   selector:
@@ -51,8 +43,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: foo
@@ -73,11 +63,7 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: def
   creationTimestamp: null
-  labels:
-    testing: abc
   name: rep
 spec:
   selector:
@@ -86,8 +72,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: rep
@@ -104,11 +88,7 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: def
   creationTimestamp: null
-  labels:
-    testing: abc
   name: web
 spec:
   selector:
@@ -117,8 +97,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: web
