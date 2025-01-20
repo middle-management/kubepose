@@ -10,4 +10,5 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - run: cat testdata/TestConvert/collector/a/k8s.yaml
       - run: go test -v -cover ./...
