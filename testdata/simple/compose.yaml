@@ -13,15 +13,6 @@ services:
           cpus: "1"
           memory: 1g
 
-  redis-replica:
-    container_name: redis-replica
-    image: redis
-    ports:
-      - "6379"
-    command: redis-server --replicaof redis-leader 6379
-    annotations:
-      kubepose.service.ignore: "true"
-
   web:
     container_name: web
     image: nginx
