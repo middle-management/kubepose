@@ -108,7 +108,7 @@ func TestConvert(t *testing.T) {
 				t.Fatal(err)
 			}
 			transformer := kubepose.Transformer{
-				Annotations: map[string]string{
+				Labels: map[string]string{
 					"testing": "abc",
 				},
 			}
