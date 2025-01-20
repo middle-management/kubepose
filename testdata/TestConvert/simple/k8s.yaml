@@ -1,22 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
   name: redis-leader
 spec:
   selector:
     matchLabels:
-      kubepose.service: redis-leader
+      app.kubernetes.io/name: redis-leader
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: redis-leader
+        app.kubernetes.io/name: redis-leader
     spec:
       containers:
       - image: redis
@@ -39,22 +35,18 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
   name: web
 spec:
   selector:
     matchLabels:
-      kubepose.service: web
+      app.kubernetes.io/name: web
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: web
+        app.kubernetes.io/name: web
     spec:
       containers:
       - image: nginx
@@ -80,7 +72,7 @@ spec:
     protocol: TCP
     targetPort: 6379
   selector:
-    kubepose.service: redis-leader
+    app.kubernetes.io/name: redis-leader
 status:
   loadBalancer: {}
 
@@ -97,6 +89,6 @@ spec:
     protocol: TCP
     targetPort: 8080
   selector:
-    kubepose.service: web
+    app.kubernetes.io/name: web
 status:
   loadBalancer: {}

@@ -38,8 +38,8 @@ func (cmd *Convert) Run() error {
 	}
 
 	transformer := kubepose.Transformer{
-		Annotations: map[string]string{
-			kubepose.KubeposeVersionAnnotationKey: getVersion(),
+		Labels: map[string]string{
+			"app.kubernetes.io/managed-by": "kubepose " + getVersion(),
 		},
 	}
 

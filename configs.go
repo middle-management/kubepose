@@ -70,7 +70,7 @@ func (t Transformer) processConfigs(project *types.Project, resources *Resources
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   k8sConfigName,
-				Labels: config.Labels,
+				Labels: mergeMaps(config.Labels, t.Labels),
 				Annotations: mergeMaps(t.Annotations, map[string]string{
 					ConfigHmacKeyAnnotationKey: configHmacKey,
 				}),

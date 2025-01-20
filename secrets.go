@@ -67,7 +67,7 @@ func (t Transformer) processSecrets(project *types.Project, resources *Resources
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   k8sSecretName,
-				Labels: secret.Labels,
+				Labels: mergeMaps(secret.Labels, t.Labels),
 				Annotations: mergeMaps(t.Annotations, map[string]string{
 					SecretHmacKeyAnnotationKey: secretHmacKey,
 				}),

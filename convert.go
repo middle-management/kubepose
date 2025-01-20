@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	KubeposeVersionAnnotationKey               = "kubepose.version"
-	ServiceSelectorLabelKey                    = "kubepose.service"
+	AppSelectorLabelKey                        = "app.kubernetes.io/name"
 	ServiceGroupAnnotationKey                  = "kubepose.service.group"
 	ServiceAccountNameAnnotationKey            = "kubepose.service.serviceAccountName"
 	ServiceExposeAnnotationKey                 = "kubepose.service.expose"
@@ -45,6 +44,7 @@ const (
 
 type Transformer struct {
 	Annotations map[string]string
+	Labels      map[string]string
 }
 
 func (t Transformer) Convert(project *types.Project) (*Resources, error) {
@@ -235,7 +235,7 @@ func (t Transformer) createPod(service types.ServiceConfig) *corev1.Pod {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        service.Name,
 			Annotations: mergeMaps(service.Annotations, t.Annotations),
-			Labels:      service.Labels,
+			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
 		Spec: t.createPodSpec(service),
 	}
@@ -261,20 +261,20 @@ func (t Transformer) createDaemonSet(resources *Resources, service types.Service
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceName,
 			Annotations: mergeMaps(service.Annotations, t.Annotations),
-			Labels:      service.Labels,
+			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: getUpdateStrategy(service),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					ServiceSelectorLabelKey: service.Name,
+					AppSelectorLabelKey: service.Name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: mergeMaps(service.Annotations, t.Annotations),
 					Labels: mergeMaps(service.Labels, map[string]string{
-						ServiceSelectorLabelKey: service.Name,
+						AppSelectorLabelKey: service.Name,
 					}),
 				},
 				Spec: t.createPodSpec(service),
@@ -310,21 +310,21 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceName,
 			Annotations: mergeMaps(service.Annotations, t.Annotations),
-			Labels:      service.Labels,
+			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: replicas,
 			Strategy: getDeploymentStrategy(service),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					ServiceSelectorLabelKey: serviceName,
+					AppSelectorLabelKey: serviceName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: mergeMaps(service.Annotations, t.Annotations),
 					Labels: mergeMaps(service.Labels, map[string]string{
-						ServiceSelectorLabelKey: serviceName,
+						AppSelectorLabelKey: serviceName,
 					}),
 				},
 				Spec: t.createPodSpec(service),
@@ -390,12 +390,12 @@ func (t Transformer) createService(service types.ServiceConfig) *corev1.Service 
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        serviceName,
-			Annotations: service.Annotations,
-			Labels:      service.Labels,
+			Annotations: mergeMaps(service.Annotations, t.Annotations),
+			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				ServiceSelectorLabelKey: serviceName,
+				AppSelectorLabelKey: serviceName,
 			},
 			Ports: t.convertServicePorts(service.Ports),
 		},
@@ -518,7 +518,7 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        service.Name,
 			Annotations: mergeMaps(service.Annotations, t.Annotations),
-			Labels:      service.Labels,
+			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: ingressClassName,

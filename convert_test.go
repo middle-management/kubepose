@@ -107,11 +107,7 @@ func TestConvert(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			transformer := kubepose.Transformer{
-				Annotations: map[string]string{
-					"testing": "abc",
-				},
-			}
+			transformer := kubepose.Transformer{}
 			resources, err := transformer.Convert(project)
 			if err != nil {
 				t.Fatal(err)
@@ -122,6 +118,11 @@ func TestConvert(t *testing.T) {
 				t.Fatal(err)
 			}
 			test.Snapshot(t, buf.Bytes())
+
+			if testing.Short() {
+				t.Log("skipping kubectl and docker compose tests in short mode")
+				return
+			}
 
 			if tt.DryRun&TestRunKubectlDryRun != 0 {
 				cmd := exec.Command("kubectl", "apply", "-f=-", "--dry-run=client")
