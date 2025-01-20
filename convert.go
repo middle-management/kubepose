@@ -19,7 +19,6 @@ import (
 )
 
 const (
-	AppManagedByLabelKey                       = "app.kubernetes.io/managed-by"
 	AppSelectorLabelKey                        = "app.kubernetes.io/name"
 	ServiceGroupAnnotationKey                  = "kubepose.service.group"
 	ServiceAccountNameAnnotationKey            = "kubepose.service.serviceAccountName"

@@ -3,10 +3,7 @@ kind: Deployment
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    testing: def
   creationTimestamp: null
-  labels:
-    testing: abc
   name: web
 spec:
   selector:
@@ -17,7 +14,6 @@ spec:
     metadata:
       annotations:
         kubepose.service.expose: web.k8s.orb.local
-        testing: def
       creationTimestamp: null
       labels:
         app.kubernetes.io/name: web
@@ -39,10 +35,7 @@ kind: Ingress
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    testing: def
   creationTimestamp: null
-  labels:
-    testing: abc
   name: web
 spec:
   rules:
@@ -65,10 +58,7 @@ kind: Service
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    testing: def
   creationTimestamp: null
-  labels:
-    testing: abc
   name: web
 spec:
   ports:
