@@ -3,22 +3,22 @@ kind: Deployment
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: web
 spec:
   selector:
     matchLabels:
-      kubepose.service: web
+      app.kubernetes.io/name: web
   strategy: {}
   template:
     metadata:
       annotations:
         kubepose.service.expose: web.k8s.orb.local
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: web
+        app.kubernetes.io/name: web
     spec:
       containers:
       - image: nginx
@@ -37,8 +37,9 @@ kind: Ingress
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: web
 spec:
   rules:
@@ -62,6 +63,8 @@ metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
   creationTimestamp: null
+  labels:
+    testing: abc
   name: web
 spec:
   ports:
@@ -70,6 +73,6 @@ spec:
     protocol: TCP
     targetPort: 80
   selector:
-    kubepose.service: web
+    app.kubernetes.io/name: web
 status:
   loadBalancer: {}

@@ -26,8 +26,9 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.volume.hmac-key: kubepose.volume.v1
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: collector-84d3dd30
 
 ---
@@ -38,23 +39,23 @@ metadata:
     kubepose.healthcheck.http_get.path: /
     kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: collector
 spec:
   selector:
     matchLabels:
-      kubepose.service: collector
+      app.kubernetes.io/name: collector
   template:
     metadata:
       annotations:
         kubepose.healthcheck.http_get.path: /
         kubepose.healthcheck.http_get.port: "13133"
         kubepose.service.serviceAccountName: otelcontribcol
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: collector
+        app.kubernetes.io/name: collector
     spec:
       containers:
       - env:
@@ -112,6 +113,8 @@ metadata:
     kubepose.healthcheck.http_get.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
+  labels:
+    testing: abc
   name: collector
 spec:
   ports:
@@ -124,6 +127,6 @@ spec:
     protocol: TCP
     targetPort: 4318
   selector:
-    kubepose.service: collector
+    app.kubernetes.io/name: collector
 status:
   loadBalancer: {}

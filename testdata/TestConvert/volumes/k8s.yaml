@@ -7,30 +7,29 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.volume.hmac-key: kubepose.volume.v1
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: postgres-cee76ffa
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: postgres
 spec:
   selector:
     matchLabels:
-      kubepose.service: postgres
+      app.kubernetes.io/name: postgres
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: postgres
+        app.kubernetes.io/name: postgres
     spec:
       containers:
       - args:
@@ -116,9 +115,9 @@ status: {}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: postgres-data
 spec:
   accessModes:
@@ -133,6 +132,8 @@ apiVersion: v1
 kind: Service
 metadata:
   creationTimestamp: null
+  labels:
+    testing: abc
   name: postgres
 spec:
   ports:
@@ -141,6 +142,6 @@ spec:
     protocol: TCP
     targetPort: 5432
   selector:
-    kubepose.service: postgres
+    app.kubernetes.io/name: postgres
 status:
   loadBalancer: {}

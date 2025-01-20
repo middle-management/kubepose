@@ -1,25 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
   labels:
     gcr.io/google-containers/: BAR
+    testing: abc
   name: bar
 spec:
   selector:
     matchLabels:
-      kubepose.service: bar
+      app.kubernetes.io/name: bar
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
+        app.kubernetes.io/name: bar
         gcr.io/google-containers/: BAR
-        kubepose.service: bar
     spec:
       containers:
       - image: busybox
@@ -33,31 +30,28 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
   labels:
     foo1: gcr.io/google-containers/
     foo2: gcr.io/google-containers/
     foo3: default
     foo4: gcr.io/google-containers/
+    testing: abc
   name: foo
 spec:
   selector:
     matchLabels:
-      kubepose.service: foo
+      app.kubernetes.io/name: foo
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
+        app.kubernetes.io/name: foo
         foo1: gcr.io/google-containers/
         foo2: gcr.io/google-containers/
         foo3: default
         foo4: gcr.io/google-containers/
-        kubepose.service: foo
     spec:
       containers:
       - image: alpine
@@ -71,22 +65,20 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: rep
 spec:
   selector:
     matchLabels:
-      kubepose.service: rep
+      app.kubernetes.io/name: rep
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: rep
+        app.kubernetes.io/name: rep
     spec:
       containers:
       - image: gcr.io/google-containers/busybox
@@ -100,22 +92,20 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: web
 spec:
   selector:
     matchLabels:
-      kubepose.service: web
+      app.kubernetes.io/name: web
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: web
+        app.kubernetes.io/name: web
     spec:
       containers:
       - args:
