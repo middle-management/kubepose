@@ -1,22 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    testing: abc
   creationTimestamp: null
+  labels:
+    testing: abc
   name: app
 spec:
   selector:
     matchLabels:
-      kubepose.service: app
+      app.kubernetes.io/name: app
   strategy: {}
   template:
     metadata:
-      annotations:
-        testing: abc
       creationTimestamp: null
       labels:
-        kubepose.service: app
+        app.kubernetes.io/name: app
     spec:
       containers:
       - args:
