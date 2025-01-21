@@ -1,6 +1,7 @@
 package kubepose
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -24,6 +26,7 @@ const (
 	ServiceAccountNameAnnotationKey            = "kubepose.service.serviceAccountName"
 	ServiceExposeAnnotationKey                 = "kubepose.service.expose"
 	ServiceExposeIngressClassNameAnnotationKey = "kubepose.service.expose.ingressClassName"
+	SelectorMatchLabelsAnnotationKey           = "kubepose.selector.matchLabels"
 	HealthcheckHttpGetPathAnnotationKey        = "kubepose.healthcheck.http_get.path"
 	HealthcheckHttpGetPortAnnotationKey        = "kubepose.healthcheck.http_get.port"
 	ContainerTypeAnnotationKey                 = "kubepose.container.type"
@@ -253,6 +256,19 @@ func (t Transformer) createDaemonSet(resources *Resources, service types.Service
 		}
 	}
 
+	matchLabels := map[string]string{
+		AppSelectorLabelKey: serviceName,
+	}
+	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
+		newMatchLabels := make(map[string]string)
+		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
+		if err != nil {
+			logrus.Warnf("Error parsing selector match labels: %v\n", err)
+		} else {
+			matchLabels = newMatchLabels
+		}
+	}
+
 	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -266,15 +282,13 @@ func (t Transformer) createDaemonSet(resources *Resources, service types.Service
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: getUpdateStrategy(service),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					AppSelectorLabelKey: service.Name,
-				},
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: mergeMaps(service.Annotations, t.Annotations),
 					Labels: mergeMaps(service.Labels, map[string]string{
-						AppSelectorLabelKey: service.Name,
+						AppSelectorLabelKey: serviceName,
 					}),
 				},
 				Spec: t.createPodSpec(service),
@@ -302,6 +316,19 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 		replicas = ptr.To(int32(*service.Deploy.Replicas))
 	}
 
+	matchLabels := map[string]string{
+		AppSelectorLabelKey: serviceName,
+	}
+	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
+		newMatchLabels := make(map[string]string)
+		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
+		if err != nil {
+			logrus.Warnf("Error parsing selector match labels: %v\n", err)
+		} else {
+			matchLabels = newMatchLabels
+		}
+	}
+
 	d := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -316,9 +343,7 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 			Replicas: replicas,
 			Strategy: getDeploymentStrategy(service),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					AppSelectorLabelKey: serviceName,
-				},
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
