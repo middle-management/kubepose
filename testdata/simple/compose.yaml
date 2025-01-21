@@ -17,5 +17,10 @@ services:
     container_name: web
     image: nginx
     build: ./web
+    annotations:
+      kubepose.selector.matchLabels: |
+        {"io.kompose.service": "web"}
+    labels:
+      io.kompose.service: web
     ports:
       - "8080:8080"
