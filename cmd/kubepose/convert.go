@@ -12,9 +12,9 @@ import (
 )
 
 type Convert struct {
-	Files    []string `name:"file" short:"f" desc:"Compose configuration files"` // []string{"compose.yaml"}
-	Profiles []string `name:"profile" desc:"Specify a profile to enable"`        // []string{"*"}
-	LogLevel string   `name:"log-level" short:"l" desc:"Log level" default:"info"`
+	Files    []string `arg:"--file,-f,separate" help:"Compose configuration files"`
+	Profiles []string `arg:"--profile,separate" help:"Specify a compose profile to enable"`
+	LogLevel string   `arg:"--log-level,-l" help:"Log level" default:"info"`
 }
 
 func (cmd *Convert) Run() error {

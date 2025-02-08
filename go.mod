@@ -5,10 +5,10 @@ go 1.23.0
 toolchain go1.23.4
 
 require (
+	github.com/alexflint/go-arg v1.5.1
 	github.com/compose-spec/compose-go/v2 v2.4.7
 	github.com/google/go-cmp v0.6.0
 	github.com/sirupsen/logrus v1.9.3
-	github.com/tdewolff/argp v0.0.0-20240126212256-acdb2fb50090
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
@@ -16,6 +16,7 @@ require (
 )
 
 require (
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect

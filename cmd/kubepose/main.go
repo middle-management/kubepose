@@ -4,21 +4,32 @@ import (
 	"log"
 	"os"
 
-	"github.com/tdewolff/argp"
+	"github.com/alexflint/go-arg"
 )
 
 var logger = log.New(os.Stderr, "", 0)
 
 func main() {
-	cmd := argp.NewCmd(&Main{}, "kubepose")
-	cmd.AddCmd(&Convert{}, "convert", "Convert compose spec to kubernetes resources")
-	cmd.AddCmd(&Version{}, "version", "Command version")
-	cmd.Error = logger
-	cmd.Parse()
+	var args Main
+	p := arg.MustParse(&args)
+
+	err := func() error {
+		switch {
+		case args.Convert != nil:
+			return args.Convert.Run()
+		case args.Version != nil:
+			return args.Version.Run()
+		default:
+			p.WriteHelp(os.Stderr)
+			return nil
+		}
+	}()
+	if err != nil {
+		logger.Println(err)
+	}
 }
 
-type Main struct{}
-
-func (cmd *Main) Run() error {
-	return argp.ShowUsage
+type Main struct {
+	Convert *Convert `arg:"subcommand:convert" help:"Convert compose spec to kubernetes resources"`
+	Version *Version `arg:"subcommand:version" help:"Command version"`
 }
