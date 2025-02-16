@@ -27,6 +27,24 @@ chmod +x kubepose
 sudo mv kubepose /usr/local/bin/
 ```
 
+### Verify the signature of the release
+
+The releases are signed using [cosign](https://github.com/sigstore/cosign). To verify the signature, you need to [install cosign first](https://docs.sigstore.dev/cosign/system_config/installation/).
+
+```bash
+# first download the certificate and signature files
+curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).pem" -o kubepose-$(uname -s)-$(uname -m).pem
+curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).sig" -o kubepose-$(uname -s)-$(uname -m).sig
+
+# then use cosign to verify the signature
+cosign verify-blob \
+  --certificate kubepose-$(uname -s)-$(uname -m).pem \
+  --signature kubepose-$(uname -s)-$(uname -m).sig \
+  --certificate-identity "https://github.com/slaskis/kubepose/.github/workflows/release.yaml@refs/tags/<tag-version>" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  kubepose-$(uname -s)-$(uname -m)
+```
+
 ## Quick Start
 
 ```bash
