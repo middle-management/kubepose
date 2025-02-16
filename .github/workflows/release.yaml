@@ -23,14 +23,38 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
+      - uses: sigstore/cosign-installer@v3.3.0
+
+      - name: Sign Binary
+        run: |
+          cosign sign-blob --yes kubepose-${{ matrix.goos }}-${{ matrix.arch }} \
+            --output-signature kubepose-${{ matrix.goos }}-${{ matrix.arch }}.sig \
+            --output-certificate kubepose-${{ matrix.goos }}-${{ matrix.arch }}.pem
+
       - uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: context.payload.release.id,
-              name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}",
-              data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}")
-            })
+            Promise.all([
+              github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: context.payload.release.id,
+                name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}",
+                data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}")
+              })
+              github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: context.payload.release.id,
+                name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}.sig",
+                data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}.sig")
+              })
+              github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: context.payload.release.id,
+                name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}.pem",
+                data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}.pem")
+              })
+            ])
