@@ -43,14 +43,14 @@ jobs:
                 release_id: context.payload.release.id,
                 name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}",
                 data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}")
-              })
+              }),
               github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 release_id: context.payload.release.id,
                 name: "kubepose-${{ matrix.goos }}-${{ matrix.arch }}.sig",
                 data: fs.readFileSync("kubepose-${{ matrix.goos }}-${{ matrix.arch }}.sig")
-              })
+              }),
               github.rest.repos.uploadReleaseAsset({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
