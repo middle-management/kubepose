@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/middle-management/kubepose"
+	"github.com/middle-management/kubepose/internal/project"
 	"github.com/sirupsen/logrus"
-	"github.com/slaskis/kubepose"
-	"github.com/slaskis/kubepose/internal/project"
 )
 
 type Convert struct {
