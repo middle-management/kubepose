@@ -19,7 +19,7 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go test -v ./...
-      - run: go build -ldflags '-s -w -X main.version=${{ github.event.release.tag_name }}' -o kubepose-${{ matrix.goos }}-${{ matrix.arch }} -v github.com/slaskis/kubepose/cmd/kubepose
+      - run: go build -ldflags '-s -w -X main.version=${{ github.event.release.tag_name }}' -o kubepose-${{ matrix.goos }}-${{ matrix.arch }} -v github.com/middle-management/kubepose/cmd/kubepose
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.arch }}

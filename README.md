@@ -15,10 +15,10 @@ kubepose provides a simpler alternative to [kompose](https://kompose.io/), focus
 
 ```bash
 # Using go install
-go install github.com/slaskis/kubepose/cmd/kubepose@latest
+go install github.com/middle-management/kubepose/cmd/kubepose@latest
 
-# Or download latest release from https://github.com/slaskis/kubepose/releases
-curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m)" -o kubepose
+# Or download latest release from https://github.com/middle-management/kubepose/releases
+curl -L "https://github.com/middle-management/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m)" -o kubepose
 
 # Make it executable
 chmod +x kubepose
@@ -33,14 +33,14 @@ The releases are signed using [cosign](https://github.com/sigstore/cosign). To v
 
 ```bash
 # first download the certificate and signature files
-curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).pem" -o kubepose-$(uname -s)-$(uname -m).pem
-curl -L "https://github.com/slaskis/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).sig" -o kubepose-$(uname -s)-$(uname -m).sig
+curl -L "https://github.com/middle-management/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).pem" -o kubepose-$(uname -s)-$(uname -m).pem
+curl -L "https://github.com/middle-management/kubepose/releases/latest/download/kubepose-$(uname -s)-$(uname -m).sig" -o kubepose-$(uname -s)-$(uname -m).sig
 
 # then use cosign to verify the signature
 cosign verify-blob \
   --certificate kubepose-$(uname -s)-$(uname -m).pem \
   --signature kubepose-$(uname -s)-$(uname -m).sig \
-  --certificate-identity "https://github.com/slaskis/kubepose/.github/workflows/release.yaml@refs/tags/<tag-version>" \
+  --certificate-identity "https://github.com/middle-management/kubepose/.github/workflows/release.yaml@refs/tags/<tag-version>" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
   kubepose-$(uname -s)-$(uname -m)
 ```

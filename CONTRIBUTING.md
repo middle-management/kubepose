@@ -7,7 +7,7 @@ Thank you for your interest in contributing to kubepose! We aim to keep this pro
 1. Install Go 1.21 or later
 2. Clone the repository:
    ```bash
-   git clone https://github.com/slaskis/kubepose.git
+   git clone https://github.com/middle-management/kubepose.git
    cd kubepose
    ```
 

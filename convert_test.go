@@ -7,9 +7,9 @@ import (
 
 	"testing"
 
-	"github.com/slaskis/kubepose"
-	"github.com/slaskis/kubepose/internal/project"
-	"github.com/slaskis/kubepose/internal/test"
+	"github.com/middle-management/kubepose"
+	"github.com/middle-management/kubepose/internal/project"
+	"github.com/middle-management/kubepose/internal/test"
 )
 
 type TestRunFlag int
