@@ -50,28 +50,80 @@ type Transformer struct {
 	Labels      map[string]string
 }
 
+// ServiceGroup represents a group of services that should be deployed together
+type ServiceGroup struct {
+	Name         string
+	AppServices  []types.ServiceConfig
+	InitServices []types.ServiceConfig
+}
+
+// Convert transforms a Docker Compose project into Kubernetes resources
 func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 	resources := &Resources{}
 
+	// 1. Process all resource mappings
+	secretMappings, configMappings, volumeMappings, err := t.processAllResources(project, resources)
+	if err != nil {
+		return nil, fmt.Errorf("error processing resources: %w", err)
+	}
+
+	// 2. Process service accounts first
+	err = t.processServiceAccounts(project, resources)
+	if err != nil {
+		return nil, fmt.Errorf("error processing service accounts: %w", err)
+	}
+
+	// 3. Group services by annotation or standalone
+	standaloneServices, serviceGroups := t.groupServices(project)
+
+	// 4. Process standalone pods (services with non-Always restart policy)
+	err = t.processStandalonePods(standaloneServices, secretMappings, configMappings, volumeMappings, resources)
+	if err != nil {
+		return nil, fmt.Errorf("error processing standalone pods: %w", err)
+	}
+
+	// 5. Process service groups
+	err = t.processServiceGroups(serviceGroups, secretMappings, configMappings, volumeMappings, resources)
+	if err != nil {
+		return nil, fmt.Errorf("error processing service groups: %w", err)
+	}
+
+	return resources, nil
+}
+
+// processAllResources handles processing of configs, secrets, and volumes
+func (t Transformer) processAllResources(project *types.Project, resources *Resources) (
+	map[string]SecretMapping,
+	map[string]ConfigMapping,
+	map[string]VolumeMapping,
+	error) {
+
+	// Process secrets
 	secretMappings, err := t.processSecrets(project, resources)
 	if err != nil {
-		return nil, fmt.Errorf("error processing secrets: %w", err)
+		return nil, nil, nil, fmt.Errorf("error processing secrets: %w", err)
 	}
 
+	// Process configs
 	configMappings, err := t.processConfigs(project, resources)
 	if err != nil {
-		return nil, fmt.Errorf("error processing configs: %w", err)
+		return nil, nil, nil, fmt.Errorf("error processing configs: %w", err)
 	}
 
+	// Process volumes
 	volumeMappings, err := t.processVolumes(project, resources)
 	if err != nil {
-		return nil, fmt.Errorf("error processing volumes: %w", err)
+		return nil, nil, nil, fmt.Errorf("error processing volumes: %w", err)
 	}
 
+	return secretMappings, configMappings, volumeMappings, nil
+}
+
+// processServiceAccounts creates service accounts for services that need them
+func (t Transformer) processServiceAccounts(project *types.Project, resources *Resources) error {
 	// Create a map to track created service accounts to avoid duplicates
 	createdServiceAccounts := make(map[string]bool)
 
-	// Process service accounts first
 	for _, service := range project.Services {
 		if saName, ok := service.Annotations[ServiceAccountNameAnnotationKey]; ok && saName != "" {
 			if !createdServiceAccounts[saName] {
@@ -82,102 +134,261 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		}
 	}
 
-	// Group services by kubepose.service.group
-	groups := make(map[string][]types.ServiceConfig)
+	return nil
+}
+
+// groupServices separates services into standalone pods and service groups
+func (t Transformer) groupServices(project *types.Project) (
+	[]types.ServiceConfig,
+	map[string]*ServiceGroup) {
+
+	var standaloneServices []types.ServiceConfig
+	groups := make(map[string]*ServiceGroup)
+
 	for _, service := range project.Services {
 		// Handle standalone pods (non-Always restart policy)
-		if getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
-			pod := t.createPod(service)
-			pod.Spec.Containers = []corev1.Container{t.createContainer(service)}
-			t.updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
-			t.updatePodSpecWithConfigs(&pod.Spec, service, configMappings)
-			t.updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources)
-			resources.Pods = append(resources.Pods, pod)
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways &&
+			service.Annotations[ContainerTypeAnnotationKey] != "init" {
+			standaloneServices = append(standaloneServices, service)
 			continue
 		}
 
+		// Get group name or use service name as fallback
 		groupName := service.Annotations[ServiceGroupAnnotationKey]
 		if groupName == "" {
 			groupName = service.Name // Use service name as group if not specified
 		}
-		groups[groupName] = append(groups[groupName], service)
+
+		// Initialize group if it doesn't exist
+		if _, exists := groups[groupName]; !exists {
+			groups[groupName] = &ServiceGroup{
+				Name: groupName,
+			}
+		}
+
+		// Add to appropriate service list within the group
+		if service.Annotations[ContainerTypeAnnotationKey] == "init" {
+			groups[groupName].InitServices = append(groups[groupName].InitServices, service)
+		} else {
+			groups[groupName].AppServices = append(groups[groupName].AppServices, service)
+		}
 	}
 
+	// Sort services in each group by name for consistent ordering
+	for _, group := range groups {
+		sort.Slice(group.AppServices, func(i, j int) bool {
+			return group.AppServices[i].Name < group.AppServices[j].Name
+		})
+		sort.Slice(group.InitServices, func(i, j int) bool {
+			return group.InitServices[i].Name < group.InitServices[j].Name
+		})
+	}
+
+	return standaloneServices, groups
+}
+
+// processStandalonePods handles services that should be standalone pods
+func (t Transformer) processStandalonePods(
+	services []types.ServiceConfig,
+	secretMappings map[string]SecretMapping,
+	configMappings map[string]ConfigMapping,
+	volumeMappings map[string]VolumeMapping,
+	resources *Resources) error {
+
+	for _, service := range services {
+		pod := t.createPod(service)
+		pod.Spec.Containers = []corev1.Container{t.createContainer(service)}
+		t.updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
+		t.updatePodSpecWithConfigs(&pod.Spec, service, configMappings)
+
+		err := t.updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources)
+		if err != nil {
+			return fmt.Errorf("error updating pod %s with volumes: %w", service.Name, err)
+		}
+
+		resources.Pods = append(resources.Pods, pod)
+	}
+
+	return nil
+}
+
+// processServiceGroups handles groups of services that become deployments/daemonsets
+func (t Transformer) processServiceGroups(
+	groups map[string]*ServiceGroup,
+	secretMappings map[string]SecretMapping,
+	configMappings map[string]ConfigMapping,
+	volumeMappings map[string]VolumeMapping,
+	resources *Resources) error {
+
+	// Get sorted group names for consistent ordering
 	var groupNames []string
 	for groupName := range groups {
 		groupNames = append(groupNames, groupName)
 	}
 	sort.Strings(groupNames)
 
-	// Process groups in sorted order
+	// Process each group in order
 	for _, groupName := range groupNames {
-		services := groups[groupName]
+		group := groups[groupName]
 
-		// Find main services (not init)
-		var appServices, initServices []types.ServiceConfig
-		for _, svc := range services {
-			if svc.Annotations[ContainerTypeAnnotationKey] == "init" {
-				initServices = append(initServices, svc)
-			} else {
-				appServices = append(appServices, svc)
-			}
-		}
-
-		if len(appServices) == 0 {
+		// Skip groups with no app services
+		if len(group.AppServices) == 0 {
 			continue
 		}
 
-		// Sort services by name for consistent ordering
-		sort.Slice(appServices, func(i, j int) bool {
-			return appServices[i].Name < appServices[j].Name
-		})
-		sort.Slice(initServices, func(i, j int) bool {
-			return initServices[i].Name < initServices[j].Name
-		})
+		// Choose the first app service as the representative
+		primaryService := group.AppServices[0]
 
-		for _, service := range appServices {
-			if service.Deploy != nil && service.Deploy.Mode == "global" {
-				ds := t.createDaemonSet(resources, service)
-				t.addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&ds.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&ds.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources)
-				}
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
-			} else {
-				deploy := t.createDeployment(resources, service)
-				t.addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources)
-				}
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
-			}
+		// Create corresponding workload resource (deployment or daemonset)
+		err := t.createWorkloadResource(
+			group,
+			primaryService,
+			secretMappings,
+			configMappings,
+			volumeMappings,
+			resources)
+		if err != nil {
+			return err
+		}
 
-			if len(service.Ports) > 0 {
-				svc := t.createService(service)
-				found := false
-				for _, s := range resources.Services {
-					if s.ObjectMeta.Name == svc.ObjectMeta.Name {
-						found = true
-						break
-					}
-				}
-				if !found {
-					resources.Services = append(resources.Services, svc)
-					if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
-						resources.Ingresses = append(resources.Ingresses, t.createIngress(service))
-					}
+		// Create network resources (services, ingresses)
+		for _, svc := range group.AppServices {
+			if len(svc.Ports) > 0 {
+				err = t.createNetworkResources(svc, resources)
+				if err != nil {
+					return err
 				}
 			}
 		}
 	}
 
-	return resources, nil
+	return nil
+}
+
+// createWorkloadResource creates a Deployment or DaemonSet based on service configuration
+func (t Transformer) createWorkloadResource(
+	group *ServiceGroup,
+	primaryService types.ServiceConfig,
+	secretMappings map[string]SecretMapping,
+	configMappings map[string]ConfigMapping,
+	volumeMappings map[string]VolumeMapping,
+	resources *Resources) error {
+
+	// Determine if this is a global service (DaemonSet)
+	isGlobal := primaryService.Deploy != nil && primaryService.Deploy.Mode == "global"
+
+	if isGlobal {
+		// Create DaemonSet
+		ds := t.createDaemonSet(resources, primaryService)
+		t.addContainersToSpec(&ds.Spec.Template.Spec, group.AppServices, group.InitServices)
+
+		// Update pod spec with resource mounts
+		err := t.updatePodSpecWithAllResources(
+			&ds.Spec.Template.Spec,
+			append(group.AppServices, group.InitServices...),
+			secretMappings,
+			configMappings,
+			volumeMappings,
+			resources)
+		if err != nil {
+			return err
+		}
+
+		removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
+		removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
+	} else {
+		// Create Deployment
+		deploy := t.createDeployment(resources, primaryService)
+		t.addContainersToSpec(&deploy.Spec.Template.Spec, group.AppServices, group.InitServices)
+
+		// Update pod spec with resource mounts
+		err := t.updatePodSpecWithAllResources(
+			&deploy.Spec.Template.Spec,
+			append(group.AppServices, group.InitServices...),
+			secretMappings,
+			configMappings,
+			volumeMappings,
+			resources)
+		if err != nil {
+			return err
+		}
+
+		removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
+		removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
+	}
+
+	return nil
+}
+
+// updatePodSpecWithAllResources applies all resource mappings to a pod spec
+func (t Transformer) updatePodSpecWithAllResources(
+	podSpec *corev1.PodSpec,
+	services []types.ServiceConfig,
+	secretMappings map[string]SecretMapping,
+	configMappings map[string]ConfigMapping,
+	volumeMappings map[string]VolumeMapping,
+	resources *Resources) error {
+
+	for _, service := range services {
+		t.updatePodSpecWithSecrets(podSpec, service, secretMappings)
+		t.updatePodSpecWithConfigs(podSpec, service, configMappings)
+
+		err := t.updatePodSpecWithVolumes(podSpec, service, volumeMappings, resources)
+		if err != nil {
+			return fmt.Errorf("error updating pod spec with volumes for service %s: %w",
+				service.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// createNetworkResources creates Service and Ingress resources for a service
+func (t Transformer) createNetworkResources(
+	service types.ServiceConfig,
+	resources *Resources) error {
+
+	// Create service
+	svc := t.createService(service)
+
+	// Avoid duplicates
+	found := false
+	for _, existing := range resources.Services {
+		if existing.ObjectMeta.Name == svc.ObjectMeta.Name {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		resources.Services = append(resources.Services, svc)
+
+		// Create ingress if needed
+		if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
+			resources.Ingresses = append(resources.Ingresses, t.createIngress(service))
+		}
+	}
+
+	return nil
+}
+
+// getMatchLabelsFromAnnotation extracts selector match labels from a service annotation
+func (t Transformer) getMatchLabelsFromAnnotation(service types.ServiceConfig) map[string]string {
+	matchLabels := map[string]string{
+		AppSelectorLabelKey: service.Name,
+	}
+
+	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
+		newMatchLabels := make(map[string]string)
+		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
+		if err != nil {
+			logrus.Warnf("Error parsing selector match labels: %v\n", err)
+		} else {
+			matchLabels = newMatchLabels
+		}
+	}
+
+	return matchLabels
 }
 
 func (t Transformer) addContainersToSpec(podSpec *corev1.PodSpec, appServices, initServices []types.ServiceConfig) {
