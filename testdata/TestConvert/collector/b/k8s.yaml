@@ -25,7 +25,7 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.volume.hmac-key: kubepose.volume.v1
+    kubepose.volume.hmacKey: kubepose.volume.v1
   creationTimestamp: null
   name: collector-84d3dd30
 
@@ -34,8 +34,8 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   annotations:
-    kubepose.healthcheck.http_get.path: /
-    kubepose.healthcheck.http_get.port: "13133"
+    kubepose.healthcheck.httpGet.path: /
+    kubepose.healthcheck.httpGet.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: collector
@@ -46,8 +46,8 @@ spec:
   template:
     metadata:
       annotations:
-        kubepose.healthcheck.http_get.path: /
-        kubepose.healthcheck.http_get.port: "13133"
+        kubepose.healthcheck.httpGet.path: /
+        kubepose.healthcheck.httpGet.port: "13133"
         kubepose.service.serviceAccountName: otelcontribcol
       creationTimestamp: null
       labels:
@@ -105,8 +105,8 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    kubepose.healthcheck.http_get.path: /
-    kubepose.healthcheck.http_get.port: "13133"
+    kubepose.healthcheck.httpGet.path: /
+    kubepose.healthcheck.httpGet.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: collector
@@ -130,8 +130,8 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   annotations:
-    kubepose.healthcheck.http_get.path: /
-    kubepose.healthcheck.http_get.port: "13133"
+    kubepose.healthcheck.httpGet.path: /
+    kubepose.healthcheck.httpGet.port: "13133"
     kubepose.service.serviceAccountName: otelcontribcol
   creationTimestamp: null
   name: otelcontribcol

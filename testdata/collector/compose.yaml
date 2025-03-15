@@ -8,8 +8,8 @@ services:
       mode: global
     annotations:
       kubepose.service.serviceAccountName: otelcontribcol
-      kubepose.healthcheck.http_get.path: /
-      kubepose.healthcheck.http_get.port: 13133
+      kubepose.healthcheck.httpGet.path: /
+      kubepose.healthcheck.httpGet.port: 13133
     volumes:
       - ./${CONFIG:-a}/config.yaml:/etc/otelcol-contrib/config.yaml
       - pod-logs:/var/log/pods

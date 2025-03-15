@@ -132,7 +132,7 @@ immutable: true
 kind: Secret
 metadata:
   annotations:
-    kubepose.secret.hmac-key: kubepose.secret.v1
+    kubepose.secret.hmacKey: kubepose.secret.v1
   creationTimestamp: null
   name: secret-79f7063e
 type: Opaque
