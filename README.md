@@ -89,7 +89,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 |---------|:------:|-------------|
 | Deployments | ✅ | Default workload type |
 | DaemonSets | ✅ | Enable with `deploy.mode: global` |
-| Multi-Container Pods | ✅ | Group via `kompose.service.group` |
+| Multi-Container Pods | ✅ | Group via `kubepose.service.group` |
 | Init Containers | ✅ | Mark with `kubepose.container.type: init` |
 | Sidecar Containers | ✅ | Init containers with `restart: always` |
 | StatefulSets | 🚧 | Planned |
