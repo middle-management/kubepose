@@ -5,7 +5,7 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.config.hmacKey: kubepose.config.v1
   creationTimestamp: null
   name: env_config-290a46c2
 
@@ -18,7 +18,7 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.config.hmacKey: kubepose.config.v1
   creationTimestamp: null
   name: file_config-123b70c3
 
@@ -34,7 +34,7 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.config.hmac-key: kubepose.config.v1
+    kubepose.config.hmacKey: kubepose.config.v1
   creationTimestamp: null
   name: my_config-c06e3902
 

@@ -6,7 +6,7 @@ immutable: true
 kind: ConfigMap
 metadata:
   annotations:
-    kubepose.volume.hmac-key: kubepose.volume.v1
+    kubepose.volume.hmacKey: kubepose.volume.v1
   creationTimestamp: null
   name: postgres-cee76ffa
 
