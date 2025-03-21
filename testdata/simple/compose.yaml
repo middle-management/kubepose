@@ -20,6 +20,11 @@ services:
     annotations:
       kubepose.selector.matchLabels: |
         {"io.kompose.service": "web"}
+    deploy:
+      placement:
+        preferences:
+          - spread: topology.kubernetes.io/zone
+          - spread: kubernetes.io/hostname
     labels:
       io.kompose.service: web
     ports:
