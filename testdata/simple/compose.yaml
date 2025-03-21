@@ -12,6 +12,10 @@ services:
         reservations:
           cpus: "1"
           memory: 1g
+      placement:
+        preferences:
+          - spread: topology.kubernetes.io/zone
+          - spread: kubernetes.io/hostname
 
   web:
     container_name: web
