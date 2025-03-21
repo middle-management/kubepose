@@ -170,7 +170,11 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 				if !found {
 					resources.Services = append(resources.Services, svc)
 					if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
-						resources.Ingresses = append(resources.Ingresses, t.createIngress(service))
+						ingress := t.createIngress(service)
+						if ingress == nil {
+							continue
+						}
+						resources.Ingresses = append(resources.Ingresses, ingress)
 					}
 				}
 			}
@@ -515,9 +519,22 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 	}
 
 	// Get host from labels or annotations
-	hosts := []string{service.Name} // Default host
-	if h, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && h != "true" {
-		hosts = strings.Split(h, ",")
+	var hosts []string
+	if expose, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && expose != "true" {
+		for _, line := range strings.Split(expose, "\n") {
+			for _, part := range strings.Split(line, ",") {
+				host := strings.TrimSpace(part)
+				if host != "" {
+					hosts = append(hosts, host)
+				}
+			}
+		}
+	} else {
+		// Default host
+		hosts = append(hosts, service.Name)
+	}
+	if len(hosts) == 0 {
+		return nil
 	}
 
 	// Find the first HTTP port
