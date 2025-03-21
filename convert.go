@@ -170,7 +170,11 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 				if !found {
 					resources.Services = append(resources.Services, svc)
 					if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
-						resources.Ingresses = append(resources.Ingresses, t.createIngress(service))
+						ingress := t.createIngress(service)
+						if ingress == nil {
+							continue
+						}
+						resources.Ingresses = append(resources.Ingresses, ingress)
 					}
 				}
 			}
@@ -507,17 +511,30 @@ func (t Transformer) getResourceRequirements(service types.ServiceConfig) corev1
 
 func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 	pathType := networkingv1.PathTypePrefix
-	var ingressClassName *string
 
 	// Check if a specific ingress class is specified in annotations
+	var ingressClassName *string
 	if class, ok := service.Annotations[ServiceExposeIngressClassNameAnnotationKey]; ok {
 		ingressClassName = &class
 	}
 
 	// Get host from labels or annotations
-	host := service.Name // Default host
-	if h, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && h != "true" {
-		host = h
+	var hosts []string
+	if expose, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && expose != "true" {
+		for _, line := range strings.Split(expose, "\n") {
+			for _, part := range strings.Split(line, ",") {
+				host := strings.TrimSpace(part)
+				if host != "" {
+					hosts = append(hosts, host)
+				}
+			}
+		}
+	} else {
+		// Default host
+		hosts = append(hosts, service.Name)
+	}
+	if len(hosts) == 0 {
+		return nil
 	}
 
 	// Find the first HTTP port
@@ -535,6 +552,31 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 		}
 	}
 
+	var rules []networkingv1.IngressRule
+	for _, host := range hosts {
+		rules = append(rules, networkingv1.IngressRule{
+			Host: host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: service.Name,
+									Port: networkingv1.ServiceBackendPort{
+										Number: servicePort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+
 	return &networkingv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "networking.k8s.io/v1",
@@ -547,29 +589,7 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: ingressClassName,
-			Rules: []networkingv1.IngressRule{
-				{
-					Host: host,
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: &pathType,
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: service.Name,
-											Port: networkingv1.ServiceBackendPort{
-												Number: servicePort,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			Rules:            rules,
 		},
 	}
 }

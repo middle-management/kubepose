@@ -5,3 +5,19 @@ services:
       kubepose.service.expose: web.k8s.orb.local
     ports:
       - "8080:80"
+
+  multi:
+    image: nginx
+    annotations:
+      kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
+    ports:
+      - "8080:80"
+
+  multispaced:
+    image: nginx
+    annotations:
+      kubepose.service.expose: |
+        multi.k8s.orb.local
+        *.k8s.orb.local , example.com
+    ports:
+      - "8080:80"
