@@ -507,17 +507,17 @@ func (t Transformer) getResourceRequirements(service types.ServiceConfig) corev1
 
 func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.Ingress {
 	pathType := networkingv1.PathTypePrefix
-	var ingressClassName *string
 
 	// Check if a specific ingress class is specified in annotations
+	var ingressClassName *string
 	if class, ok := service.Annotations[ServiceExposeIngressClassNameAnnotationKey]; ok {
 		ingressClassName = &class
 	}
 
 	// Get host from labels or annotations
-	host := service.Name // Default host
+	hosts := []string{service.Name} // Default host
 	if h, ok := service.Annotations[ServiceExposeAnnotationKey]; ok && h != "true" {
-		host = h
+		hosts = strings.Split(h, ",")
 	}
 
 	// Find the first HTTP port
@@ -535,6 +535,31 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 		}
 	}
 
+	var rules []networkingv1.IngressRule
+	for _, host := range hosts {
+		rules = append(rules, networkingv1.IngressRule{
+			Host: host,
+			IngressRuleValue: networkingv1.IngressRuleValue{
+				HTTP: &networkingv1.HTTPIngressRuleValue{
+					Paths: []networkingv1.HTTPIngressPath{
+						{
+							Path:     "/",
+							PathType: &pathType,
+							Backend: networkingv1.IngressBackend{
+								Service: &networkingv1.IngressServiceBackend{
+									Name: service.Name,
+									Port: networkingv1.ServiceBackendPort{
+										Number: servicePort,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	}
+
 	return &networkingv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "networking.k8s.io/v1",
@@ -547,29 +572,7 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 		},
 		Spec: networkingv1.IngressSpec{
 			IngressClassName: ingressClassName,
-			Rules: []networkingv1.IngressRule{
-				{
-					Host: host,
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: []networkingv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: &pathType,
-									Backend: networkingv1.IngressBackend{
-										Service: &networkingv1.IngressServiceBackend{
-											Name: service.Name,
-											Port: networkingv1.ServiceBackendPort{
-												Number: servicePort,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			Rules:            rules,
 		},
 	}
 }

@@ -2,6 +2,38 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
+    kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
+  creationTimestamp: null
+  name: multi
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: multi
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
+      creationTimestamp: null
+      labels:
+        app.kubernetes.io/name: multi
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: multi
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
     kubepose.service.expose: web.k8s.orb.local
   creationTimestamp: null
   name: web
@@ -34,6 +66,39 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
+    kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
+  creationTimestamp: null
+  name: multi
+spec:
+  rules:
+  - host: multi.k8s.orb.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: multi
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+  - host: '*.k8s.orb.local'
+    http:
+      paths:
+      - backend:
+          service:
+            name: multi
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+status:
+  loadBalancer: {}
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
     kubepose.service.expose: web.k8s.orb.local
   creationTimestamp: null
   name: web
@@ -49,6 +114,25 @@ spec:
               number: 8080
         path: /
         pathType: Prefix
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
+  creationTimestamp: null
+  name: multi
+spec:
+  ports:
+  - name: "8080"
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: multi
 status:
   loadBalancer: {}
 
