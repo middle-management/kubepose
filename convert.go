@@ -260,19 +260,6 @@ func (t Transformer) createDaemonSet(resources *Resources, service types.Service
 		}
 	}
 
-	matchLabels := map[string]string{
-		AppSelectorLabelKey: serviceName,
-	}
-	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
-		newMatchLabels := make(map[string]string)
-		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
-		if err != nil {
-			logrus.Warnf("Error parsing selector match labels: %v\n", err)
-		} else {
-			matchLabels = newMatchLabels
-		}
-	}
-
 	ds := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -286,7 +273,7 @@ func (t Transformer) createDaemonSet(resources *Resources, service types.Service
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: getUpdateStrategy(service),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: matchLabels,
+				MatchLabels: getMatchLabels(service),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -320,19 +307,6 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 		replicas = ptr.To(int32(*service.Deploy.Replicas))
 	}
 
-	matchLabels := map[string]string{
-		AppSelectorLabelKey: serviceName,
-	}
-	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
-		newMatchLabels := make(map[string]string)
-		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
-		if err != nil {
-			logrus.Warnf("Error parsing selector match labels: %v\n", err)
-		} else {
-			matchLabels = newMatchLabels
-		}
-	}
-
 	d := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -347,7 +321,7 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 			Replicas: replicas,
 			Strategy: getDeploymentStrategy(service),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: matchLabels,
+				MatchLabels: getMatchLabels(service),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -366,10 +340,32 @@ func (t Transformer) createDeployment(resources *Resources, service types.Servic
 
 func (t Transformer) createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 	return corev1.PodSpec{
-		RestartPolicy:      getRestartPolicy(service),
-		SecurityContext:    getSecurityContext(service),
-		ServiceAccountName: service.Annotations[ServiceAccountNameAnnotationKey],
+		RestartPolicy:             getRestartPolicy(service),
+		SecurityContext:           getSecurityContext(service),
+		ServiceAccountName:        service.Annotations[ServiceAccountNameAnnotationKey],
+		TopologySpreadConstraints: getTopologySpreadConstraints(service),
 	}
+}
+
+func getTopologySpreadConstraints(service types.ServiceConfig) []corev1.TopologySpreadConstraint {
+	var constraints []corev1.TopologySpreadConstraint
+	if service.Deploy == nil {
+		return constraints
+	}
+	for _, preference := range service.Deploy.Placement.Preferences {
+		if preference.Spread == "" {
+			continue
+		}
+		constraints = append(constraints, corev1.TopologySpreadConstraint{
+			MaxSkew:           int32(1),
+			TopologyKey:       preference.Spread,
+			WhenUnsatisfiable: corev1.DoNotSchedule,
+			LabelSelector: &metav1.LabelSelector{
+				MatchLabels: getMatchLabels(service),
+			},
+		})
+	}
+	return constraints
 }
 
 func (t Transformer) createServiceAccount(name string, service types.ServiceConfig) *corev1.ServiceAccount {
@@ -889,6 +885,27 @@ func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext 
 		FSGroup:            fsGroup,
 		SupplementalGroups: supplementalGroups,
 	}
+}
+
+func getMatchLabels(service types.ServiceConfig) map[string]string {
+	serviceName := service.Name
+	if service.Annotations[ServiceGroupAnnotationKey] != "" {
+		serviceName = service.Annotations[ServiceGroupAnnotationKey]
+	}
+
+	matchLabels := map[string]string{
+		AppSelectorLabelKey: serviceName,
+	}
+	if annotation, ok := service.Annotations[SelectorMatchLabelsAnnotationKey]; ok {
+		newMatchLabels := make(map[string]string)
+		err := json.Unmarshal([]byte(annotation), &newMatchLabels)
+		if err != nil {
+			logrus.Warnf("Error parsing selector match labels: %v\n", err)
+		} else {
+			matchLabels = newMatchLabels
+		}
+	}
+	return matchLabels
 }
 
 func splitCommand(cmd string) []string {
