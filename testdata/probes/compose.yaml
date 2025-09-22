@@ -1,0 +1,128 @@
+services:
+  # Service with both start_period and start_interval
+  app-with-startup:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+
+  # Service with only start_period (should use default start_interval of 5s)
+  app-start-period-only:
+    image: nginx:alpine
+    ports:
+      - "8081:80"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # Service with short start_interval and minimal start_period
+  app-start-interval-only:
+    image: nginx:alpine
+    ports:
+      - "8082:80"
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+      start_interval: 3s
+
+  # Service without startup probe fields (traditional healthcheck)
+  app-no-startup:
+    image: nginx:alpine
+    ports:
+      - "8083:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service with HTTP health check annotations and startup probe
+  app-http-with-startup:
+    image: nginx:alpine
+    ports:
+      - "8084:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+      start_interval: 4s
+    annotations:
+      kubepose.healthcheck.httpGet.path: "/health"
+      kubepose.healthcheck.httpGet.port: "80"
+
+  # Service with disabled health check
+  app-disabled-healthcheck:
+    image: nginx:alpine
+    ports:
+      - "8085:80"
+    healthcheck:
+      disable: true
+
+  # Service with disabled (NONE) health check
+  app-none-healthcheck:
+    image: nginx:alpine
+    ports:
+      - "8085:80"
+    healthcheck:
+      test: ["NONE"]
+
+  # Edge case: start_period less than start_interval
+  app-edge-case:
+    image: nginx:alpine
+    ports:
+      - "8086:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 2
+      start_period: 3s
+      start_interval: 10s
+
+  # Service with very long startup period
+  slow-starting-app:
+    image: nginx:alpine
+    ports:
+      - "8087:80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/ready || exit 1"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 300s # 5 minutes
+      start_interval: 15s
+
+  # Service with multiple ports and startup probe
+  multi-port-app:
+    image: nginx:alpine
+    ports:
+      - "8088:80"
+      - "9088:443"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 45s
+      timeout: 20s
+      retries: 4
+      start_period: 150s
+      start_interval: 10s
+    annotations:
+      kubepose.healthcheck.httpGet.path: "/health"
+      kubepose.healthcheck.httpGet.port: "80"

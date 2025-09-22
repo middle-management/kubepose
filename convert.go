@@ -206,7 +206,7 @@ nextService:
 }
 
 func (t Transformer) createContainer(service types.ServiceConfig) corev1.Container {
-	livenessProbe, readinessProbe := getProbes(service)
+	livenessProbe, readinessProbe, startupProbe := getProbes(service)
 
 	// support for init containers with always restart policy
 	// (also known as side car containers)
@@ -229,6 +229,7 @@ func (t Transformer) createContainer(service types.ServiceConfig) corev1.Contain
 		ImagePullPolicy: t.getImagePullPolicy(service),
 		LivenessProbe:   livenessProbe,
 		ReadinessProbe:  readinessProbe,
+		StartupProbe:    startupProbe,
 		RestartPolicy:   containerRestartPolicy,
 	}
 }
@@ -637,9 +638,9 @@ func (t Transformer) getImagePullPolicy(service types.ServiceConfig) corev1.Pull
 	}
 }
 
-func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *corev1.Probe) {
+func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *corev1.Probe, startup *corev1.Probe) {
 	if service.HealthCheck != nil && service.HealthCheck.Disable {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	var probe *corev1.Probe
@@ -656,7 +657,7 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 				command = splitCommand(command[0])
 			}
 		case "NONE":
-			return nil, nil
+			return nil, nil, nil
 		default:
 			panic("unsupported health check type: " + service.HealthCheck.Test[0])
 		}
@@ -678,11 +679,30 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		if service.HealthCheck.Timeout != nil {
 			probe.TimeoutSeconds = int32(time.Duration(*service.HealthCheck.Timeout).Seconds())
 		}
-		if service.HealthCheck.StartPeriod != nil {
-			probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
-		}
 		if service.HealthCheck.Retries != nil {
 			probe.FailureThreshold = int32(*service.HealthCheck.Retries)
+		}
+
+		// Handle startup probe if start_period and/or start_interval are specified
+		if service.HealthCheck.StartInterval != nil {
+			startup = probe.DeepCopy()
+
+			startup.PeriodSeconds = int32(time.Duration(*service.HealthCheck.StartInterval).Seconds())
+
+			// Calculate failure threshold based on start_period / start_interval
+			if service.HealthCheck.StartPeriod != nil {
+				startPeriodSeconds := int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
+				startup.FailureThreshold = max(startPeriodSeconds/startup.PeriodSeconds, 1)
+			}
+
+			// Startup probe doesn't need initial delay
+			startup.InitialDelaySeconds = 0
+
+			// Liveness probe should not have initial delay when startup probe is used
+			probe.InitialDelaySeconds = 0
+		} else if service.HealthCheck.StartPeriod != nil {
+			// If only start_period is specified, use it as initial delay for liveness probe
+			probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
 		}
 
 		// Use the same probe for both liveness and readiness
@@ -716,13 +736,31 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 			httpProbe.FailureThreshold = probe.FailureThreshold
 		}
 
+		// Handle startup probe for HTTP health checks
+		if service.HealthCheck != nil && service.HealthCheck.StartInterval != nil {
+			startup = httpProbe.DeepCopy()
+			startup.PeriodSeconds = int32(time.Duration(*service.HealthCheck.StartInterval).Seconds())
+
+			// Calculate failure threshold based on start_period / start_interval
+			if service.HealthCheck.StartPeriod != nil {
+				startPeriodSeconds := int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
+				startup.FailureThreshold = max(startPeriodSeconds/startup.PeriodSeconds, 1)
+			}
+
+			// Startup probe doesn't need initial delay
+			startup.InitialDelaySeconds = 0
+
+			// Liveness probe should not have initial delay when startup probe is used
+			httpProbe.InitialDelaySeconds = 0
+		}
+
 		liveness = httpProbe
 		readiness = httpProbe.DeepCopy()
 	}
 
 	// TODO TCP and GRPC health checks
 
-	return liveness, readiness
+	return liveness, readiness, startup
 }
 
 func getFirstPort(service types.ServiceConfig) int {

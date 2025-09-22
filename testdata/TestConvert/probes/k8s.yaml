@@ -1,0 +1,640 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-disabled-healthcheck
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-disabled-healthcheck
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-disabled-healthcheck
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        name: app-disabled-healthcheck
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-edge-case
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-edge-case
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-edge-case
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost
+          failureThreshold: 2
+          periodSeconds: 30
+          timeoutSeconds: 5
+        name: app-edge-case
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost
+          failureThreshold: 2
+          periodSeconds: 30
+          timeoutSeconds: 5
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost
+          failureThreshold: 1
+          periodSeconds: 10
+          timeoutSeconds: 5
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.healthcheck.httpGet.path: /health
+    kubepose.healthcheck.httpGet.port: "80"
+  name: app-http-with-startup
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-http-with-startup
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.healthcheck.httpGet.path: /health
+        kubepose.healthcheck.httpGet.port: "80"
+      labels:
+        app.kubernetes.io/name: app-http-with-startup
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 30
+          timeoutSeconds: 15
+        name: app-http-with-startup
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 30
+          timeoutSeconds: 15
+        resources: {}
+        startupProbe:
+          failureThreshold: 30
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 4
+          timeoutSeconds: 15
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-no-startup
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-no-startup
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-no-startup
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: app-no-startup
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-none-healthcheck
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-none-healthcheck
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-none-healthcheck
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        name: app-none-healthcheck
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-start-interval-only
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-start-interval-only
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-start-interval-only
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - nc
+            - -z
+            - localhost
+            - "80"
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: app-start-interval-only
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - nc
+            - -z
+            - localhost
+            - "80"
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - nc
+            - -z
+            - localhost
+            - "80"
+          failureThreshold: 5
+          periodSeconds: 3
+          timeoutSeconds: 10
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-start-period-only
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-start-period-only
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-start-period-only
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - wget --no-verbose --tries=1 --spider http://localhost || exit 1
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: app-start-period-only
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - wget --no-verbose --tries=1 --spider http://localhost || exit 1
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - wget --no-verbose --tries=1 --spider http://localhost || exit 1
+          failureThreshold: 18
+          periodSeconds: 5
+          timeoutSeconds: 10
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-with-startup
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: app-with-startup
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: app-with-startup
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost/health
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        name: app-with-startup
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost/health
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://localhost/health
+          failureThreshold: 12
+          periodSeconds: 5
+          timeoutSeconds: 10
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.healthcheck.httpGet.path: /health
+    kubepose.healthcheck.httpGet.port: "80"
+  name: multi-port-app
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: multi-port-app
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.healthcheck.httpGet.path: /health
+        kubepose.healthcheck.httpGet.port: "80"
+      labels:
+        app.kubernetes.io/name: multi-port-app
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 45
+          timeoutSeconds: 20
+        name: multi-port-app
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        - containerPort: 443
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 4
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 45
+          timeoutSeconds: 20
+        resources: {}
+        startupProbe:
+          failureThreshold: 15
+          httpGet:
+            path: /health
+            port: 80
+          periodSeconds: 10
+          timeoutSeconds: 20
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slow-starting-app
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: slow-starting-app
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: slow-starting-app
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - curl -f http://localhost/ready || exit 1
+          failureThreshold: 3
+          periodSeconds: 60
+          timeoutSeconds: 30
+        name: slow-starting-app
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - curl -f http://localhost/ready || exit 1
+          failureThreshold: 3
+          periodSeconds: 60
+          timeoutSeconds: 30
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - curl -f http://localhost/ready || exit 1
+          failureThreshold: 20
+          periodSeconds: 15
+          timeoutSeconds: 30
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-disabled-healthcheck
+spec:
+  ports:
+  - name: "8085"
+    port: 8085
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-disabled-healthcheck
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-edge-case
+spec:
+  ports:
+  - name: "8086"
+    port: 8086
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-edge-case
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.healthcheck.httpGet.path: /health
+    kubepose.healthcheck.httpGet.port: "80"
+  name: app-http-with-startup
+spec:
+  ports:
+  - name: "8084"
+    port: 8084
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-http-with-startup
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-no-startup
+spec:
+  ports:
+  - name: "8083"
+    port: 8083
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-no-startup
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-none-healthcheck
+spec:
+  ports:
+  - name: "8085"
+    port: 8085
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-none-healthcheck
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-start-interval-only
+spec:
+  ports:
+  - name: "8082"
+    port: 8082
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-start-interval-only
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-start-period-only
+spec:
+  ports:
+  - name: "8081"
+    port: 8081
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-start-period-only
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-with-startup
+spec:
+  ports:
+  - name: "8080"
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: app-with-startup
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.healthcheck.httpGet.path: /health
+    kubepose.healthcheck.httpGet.port: "80"
+  name: multi-port-app
+spec:
+  ports:
+  - name: "8088"
+    port: 8088
+    protocol: TCP
+    targetPort: 80
+  - name: "9088"
+    port: 9088
+    protocol: TCP
+    targetPort: 443
+  selector:
+    app.kubernetes.io/name: multi-port-app
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: slow-starting-app
+spec:
+  ports:
+  - name: "8087"
+    port: 8087
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: slow-starting-app
+status:
+  loadBalancer: {}
