@@ -686,20 +686,15 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		// Handle startup probe if start_period and/or start_interval are specified
 		if service.HealthCheck.StartInterval != nil {
 			startup = probe.DeepCopy()
-
 			startup.PeriodSeconds = int32(time.Duration(*service.HealthCheck.StartInterval).Seconds())
+			startup.InitialDelaySeconds = 0
+			startup.FailureThreshold = 0
 
-			// Calculate failure threshold based on start_period / start_interval
 			if service.HealthCheck.StartPeriod != nil {
 				startPeriodSeconds := int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
 				startup.FailureThreshold = max(startPeriodSeconds/startup.PeriodSeconds, 1)
 			}
 
-			// Startup probe doesn't need initial delay
-			startup.InitialDelaySeconds = 0
-
-			// Liveness probe should not have initial delay when startup probe is used
-			probe.InitialDelaySeconds = 0
 		} else if service.HealthCheck.StartPeriod != nil {
 			// If only start_period is specified, use it as initial delay for liveness probe
 			probe.InitialDelaySeconds = int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
@@ -740,18 +735,14 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		if service.HealthCheck != nil && service.HealthCheck.StartInterval != nil {
 			startup = httpProbe.DeepCopy()
 			startup.PeriodSeconds = int32(time.Duration(*service.HealthCheck.StartInterval).Seconds())
+			startup.FailureThreshold = 0
+			startup.InitialDelaySeconds = 0
+			httpProbe.InitialDelaySeconds = 0
 
-			// Calculate failure threshold based on start_period / start_interval
 			if service.HealthCheck.StartPeriod != nil {
 				startPeriodSeconds := int32(time.Duration(*service.HealthCheck.StartPeriod).Seconds())
 				startup.FailureThreshold = max(startPeriodSeconds/startup.PeriodSeconds, 1)
 			}
-
-			// Startup probe doesn't need initial delay
-			startup.InitialDelaySeconds = 0
-
-			// Liveness probe should not have initial delay when startup probe is used
-			httpProbe.InitialDelaySeconds = 0
 		}
 
 		liveness = httpProbe

@@ -280,6 +280,7 @@ spec:
             - -c
             - wget --no-verbose --tries=1 --spider http://localhost || exit 1
           failureThreshold: 3
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
         name: app-start-period-only
@@ -293,18 +294,10 @@ spec:
             - -c
             - wget --no-verbose --tries=1 --spider http://localhost || exit 1
           failureThreshold: 3
+          initialDelaySeconds: 90
           periodSeconds: 30
           timeoutSeconds: 10
         resources: {}
-        startupProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - wget --no-verbose --tries=1 --spider http://localhost || exit 1
-          failureThreshold: 18
-          periodSeconds: 5
-          timeoutSeconds: 10
       restartPolicy: Always
 status: {}
 
