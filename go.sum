@@ -2,8 +2,8 @@ github.com/alexflint/go-arg v1.6.0 h1:wPP9TwTPO54fUVQl4nZoxbFfKCcy5E6HBCumj1XVRS
 github.com/alexflint/go-arg v1.6.0/go.mod h1:A7vTJzvjoaSTypg4biM5uYNTkJ27SkNTArtYXnlqVO8=
 github.com/alexflint/go-scalar v1.2.0 h1:WR7JPKkeNpnYIOfHRa7ivM21aWAdHD0gEWHCx+WQBRw=
 github.com/alexflint/go-scalar v1.2.0/go.mod h1:LoFvNMqS1CPrMVltza4LvnGKhaSpc3oyLEBUZVhhS2o=
-github.com/compose-spec/compose-go/v2 v2.8.2 h1:A1iVoZJUex7buGv1CpnC5uwNuyTMBYpDAmBnAQmia9Q=
-github.com/compose-spec/compose-go/v2 v2.8.2/go.mod h1:Oky9AZGTRB4E+0VbTPZTUu4Kp+oEMMuwZXZtPPVT1iE=
+github.com/compose-spec/compose-go/v2 v2.9.0 h1:UHSv/QHlo6QJtrT4igF1rdORgIUhDo1gWuyJUoiNNIM=
+github.com/compose-spec/compose-go/v2 v2.9.0/go.mod h1:Oky9AZGTRB4E+0VbTPZTUu4Kp+oEMMuwZXZtPPVT1iE=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
