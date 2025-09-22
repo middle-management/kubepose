@@ -126,3 +126,16 @@ services:
     annotations:
       kubepose.healthcheck.httpGet.path: "/health"
       kubepose.healthcheck.httpGet.port: "80"
+
+  # Service with very long startup period
+  split-cmdshell-app:
+    image: nginx:alpine
+    ports:
+      - "8089:80"
+    healthcheck:
+      test: ["CMD-SHELL", "grep", "-q", ":1538", "/proc/*/net/tcp"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 300s # 5 minutes
+      start_interval: 15s

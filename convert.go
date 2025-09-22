@@ -650,7 +650,7 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		var command []string
 		switch service.HealthCheck.Test[0] {
 		case "CMD-SHELL":
-			command = append([]string{"/bin/sh", "-c"}, service.HealthCheck.Test[1:]...)
+			command = []string{"/bin/sh", "-c", strings.Join(service.HealthCheck.Test[1:], " ")}
 		case "CMD":
 			command = service.HealthCheck.Test[1:]
 			if len(command) == 1 {
