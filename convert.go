@@ -655,6 +655,8 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 			if len(command) == 1 {
 				command = splitCommand(command[0])
 			}
+		case "NONE":
+			return nil, nil
 		default:
 			panic("unsupported health check type: " + service.HealthCheck.Test[0])
 		}
