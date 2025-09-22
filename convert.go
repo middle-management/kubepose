@@ -648,13 +648,15 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
 		var command []string
 		switch service.HealthCheck.Test[0] {
-		case "CMD", "CMD-SHELL":
+		case "CMD-SHELL":
+			command = append([]string{"/bin/sh", "-c"}, service.HealthCheck.Test[1:]...)
+		case "CMD":
 			command = service.HealthCheck.Test[1:]
+			if len(command) == 1 {
+				command = splitCommand(command[0])
+			}
 		default:
-			command = service.HealthCheck.Test
-		}
-		if len(command) == 1 {
-			command = splitCommand(command[0])
+			panic("unsupported health check type: " + service.HealthCheck.Test[0])
 		}
 
 		probe = &corev1.Probe{

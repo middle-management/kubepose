@@ -13,5 +13,9 @@ services:
     image: ${MISSING_VAR_INTERPOLATED_BY_COMPOSE:-}busybox
     labels:
       - "$VAR_INTERPOLATED_BY_COMPOSE=BAR"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "$VAR_INTERPOLATED_BY_COMPOSE"]
   rep:
     image: ${VAR_INTERPOLATED_BY_COMPOSE:-}busybox
+    healthcheck:
+      test: curl -f $VAR_INTERPOLATED_BY_COMPOSE

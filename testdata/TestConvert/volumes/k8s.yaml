@@ -57,9 +57,9 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /usr/bin/pg_isready
-            - --username=$POSTGRES_USER
-            - --dbname=$POSTGRES_DB
+            - /bin/sh
+            - -c
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
           failureThreshold: 120
           periodSeconds: 3
           timeoutSeconds: 10
@@ -70,9 +70,9 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /usr/bin/pg_isready
-            - --username=$POSTGRES_USER
-            - --dbname=$POSTGRES_DB
+            - /bin/sh
+            - -c
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
           failureThreshold: 120
           periodSeconds: 3
           timeoutSeconds: 10

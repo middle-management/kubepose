@@ -18,7 +18,19 @@ spec:
       containers:
       - image: busybox
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - gcr.io/google-containers/
         name: bar
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - gcr.io/google-containers/
         resources: {}
       restartPolicy: Always
 status: {}
@@ -73,7 +85,19 @@ spec:
       containers:
       - image: gcr.io/google-containers/busybox
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - curl -f gcr.io/google-containers/
         name: rep
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - curl -f gcr.io/google-containers/
         resources: {}
       restartPolicy: Always
 status: {}

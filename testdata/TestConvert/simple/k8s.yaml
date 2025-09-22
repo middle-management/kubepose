@@ -69,10 +69,34 @@ spec:
       containers:
       - image: nginx
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - nc
+            - -zv
+            - $REDIS_LEADER_SERVICE_HOST
+            - $REDIS_LEADER_SERVICE_PORT
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
         name: web
         ports:
         - containerPort: 8080
           protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - nc
+            - -zv
+            - $REDIS_LEADER_SERVICE_HOST
+            - $REDIS_LEADER_SERVICE_PORT
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
         resources: {}
       restartPolicy: Always
       topologySpreadConstraints:
