@@ -3,7 +3,6 @@ kind: Deployment
 metadata:
   annotations:
     kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
-  creationTimestamp: null
   name: multi
 spec:
   selector:
@@ -14,7 +13,6 @@ spec:
     metadata:
       annotations:
         kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: multi
     spec:
@@ -37,7 +35,6 @@ metadata:
     kubepose.service.expose: |
       multi.k8s.orb.local
       *.k8s.orb.local , example.com
-  creationTimestamp: null
   name: multispaced
 spec:
   selector:
@@ -50,7 +47,6 @@ spec:
         kubepose.service.expose: |
           multi.k8s.orb.local
           *.k8s.orb.local , example.com
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: multispaced
     spec:
@@ -71,7 +67,6 @@ kind: Deployment
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-  creationTimestamp: null
   name: web
 spec:
   selector:
@@ -82,7 +77,6 @@ spec:
     metadata:
       annotations:
         kubepose.service.expose: web.k8s.orb.local
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: web
     spec:
@@ -103,7 +97,6 @@ kind: Ingress
 metadata:
   annotations:
     kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
-  creationTimestamp: null
   name: multi
 spec:
   rules:
@@ -138,7 +131,6 @@ metadata:
     kubepose.service.expose: |
       multi.k8s.orb.local
       *.k8s.orb.local , example.com
-  creationTimestamp: null
   name: multispaced
 spec:
   rules:
@@ -181,7 +173,6 @@ kind: Ingress
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-  creationTimestamp: null
   name: web
 spec:
   rules:
@@ -204,7 +195,6 @@ kind: Service
 metadata:
   annotations:
     kubepose.service.expose: multi.k8s.orb.local,*.k8s.orb.local
-  creationTimestamp: null
   name: multi
 spec:
   ports:
@@ -225,7 +215,6 @@ metadata:
     kubepose.service.expose: |
       multi.k8s.orb.local
       *.k8s.orb.local , example.com
-  creationTimestamp: null
   name: multispaced
 spec:
   ports:
@@ -244,7 +233,6 @@ kind: Service
 metadata:
   annotations:
     kubepose.service.expose: web.k8s.orb.local
-  creationTimestamp: null
   name: web
 spec:
   ports:
