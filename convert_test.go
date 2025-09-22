@@ -90,6 +90,10 @@ func TestConvert(t *testing.T) {
 			Files:    []string{"testdata/user/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
+		{Name: "probes/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/probes/compose.yaml"},
+			Profiles: []string{"*"},
+		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
 	}
 	for _, tt := range tests {
 		tt := tt

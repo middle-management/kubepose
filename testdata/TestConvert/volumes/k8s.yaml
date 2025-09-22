@@ -7,14 +7,12 @@ kind: ConfigMap
 metadata:
   annotations:
     kubepose.volume.hmacKey: kubepose.volume.v1
-  creationTimestamp: null
   name: postgres-cee76ffa
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: postgres
 spec:
   selector:
@@ -23,7 +21,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: postgres
     spec:
@@ -60,9 +57,9 @@ spec:
         livenessProbe:
           exec:
             command:
-            - /usr/bin/pg_isready
-            - --username=$POSTGRES_USER
-            - --dbname=$POSTGRES_DB
+            - /bin/sh
+            - -c
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
           failureThreshold: 120
           periodSeconds: 3
           timeoutSeconds: 10
@@ -73,9 +70,9 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /usr/bin/pg_isready
-            - --username=$POSTGRES_USER
-            - --dbname=$POSTGRES_DB
+            - /bin/sh
+            - -c
+            - /usr/bin/pg_isready --username=$POSTGRES_USER --dbname=$POSTGRES_DB
           failureThreshold: 120
           periodSeconds: 3
           timeoutSeconds: 10
@@ -111,7 +108,6 @@ status: {}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  creationTimestamp: null
   name: postgres-data
 spec:
   accessModes:
@@ -125,7 +121,6 @@ status: {}
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   name: postgres
 spec:
   ports:

@@ -29,6 +29,18 @@ services:
         preferences:
           - spread: topology.kubernetes.io/zone
           - spread: kubernetes.io/hostname
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "nc",
+          "-zv",
+          "$$REDIS_LEADER_SERVICE_HOST",
+          "$$REDIS_LEADER_SERVICE_PORT",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       io.kompose.service: web
     ports:

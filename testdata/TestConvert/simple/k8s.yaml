@@ -1,7 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  creationTimestamp: null
   name: redis-leader
 spec:
   selector:
@@ -10,7 +9,6 @@ spec:
   strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: redis-leader
     spec:
@@ -51,7 +49,6 @@ metadata:
   annotations:
     kubepose.selector.matchLabels: |
       {"io.kompose.service": "web"}
-  creationTimestamp: null
   labels:
     io.kompose.service: web
   name: web
@@ -65,7 +62,6 @@ spec:
       annotations:
         kubepose.selector.matchLabels: |
           {"io.kompose.service": "web"}
-      creationTimestamp: null
       labels:
         app.kubernetes.io/name: web
         io.kompose.service: web
@@ -73,10 +69,34 @@ spec:
       containers:
       - image: nginx
         imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - nc
+            - -zv
+            - $REDIS_LEADER_SERVICE_HOST
+            - $REDIS_LEADER_SERVICE_PORT
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
         name: web
         ports:
         - containerPort: 8080
           protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - nc
+            - -zv
+            - $REDIS_LEADER_SERVICE_HOST
+            - $REDIS_LEADER_SERVICE_PORT
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 10
         resources: {}
       restartPolicy: Always
       topologySpreadConstraints:
@@ -98,7 +118,6 @@ status: {}
 apiVersion: v1
 kind: Service
 metadata:
-  creationTimestamp: null
   name: redis-leader
 spec:
   ports:
@@ -118,7 +137,6 @@ metadata:
   annotations:
     kubepose.selector.matchLabels: |
       {"io.kompose.service": "web"}
-  creationTimestamp: null
   labels:
     io.kompose.service: web
   name: web
