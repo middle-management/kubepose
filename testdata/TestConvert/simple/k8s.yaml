@@ -74,10 +74,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - nc
-            - -zv
-            - $REDIS_LEADER_SERVICE_HOST
-            - $REDIS_LEADER_SERVICE_PORT
+            - nc -zv $REDIS_LEADER_SERVICE_HOST $REDIS_LEADER_SERVICE_PORT
           failureThreshold: 3
           periodSeconds: 30
           timeoutSeconds: 10
@@ -90,10 +87,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - nc
-            - -zv
-            - $REDIS_LEADER_SERVICE_HOST
-            - $REDIS_LEADER_SERVICE_PORT
+            - nc -zv $REDIS_LEADER_SERVICE_HOST $REDIS_LEADER_SERVICE_PORT
           failureThreshold: 3
           periodSeconds: 30
           timeoutSeconds: 10

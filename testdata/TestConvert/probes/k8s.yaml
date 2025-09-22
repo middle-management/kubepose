@@ -463,6 +463,59 @@ spec:
 status: {}
 
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: split-cmdshell-app
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: split-cmdshell-app
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: split-cmdshell-app
+    spec:
+      containers:
+      - image: nginx:alpine
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - grep -q :1538 /proc/*/net/tcp
+          failureThreshold: 3
+          periodSeconds: 60
+          timeoutSeconds: 30
+        name: split-cmdshell-app
+        ports:
+        - containerPort: 80
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - grep -q :1538 /proc/*/net/tcp
+          failureThreshold: 3
+          periodSeconds: 60
+          timeoutSeconds: 30
+        resources: {}
+        startupProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - grep -q :1538 /proc/*/net/tcp
+          failureThreshold: 20
+          periodSeconds: 15
+          timeoutSeconds: 30
+      restartPolicy: Always
+status: {}
+
+---
 apiVersion: v1
 kind: Service
 metadata:
@@ -629,5 +682,21 @@ spec:
     targetPort: 80
   selector:
     app.kubernetes.io/name: slow-starting-app
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: split-cmdshell-app
+spec:
+  ports:
+  - name: "8089"
+    port: 8089
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/name: split-cmdshell-app
 status:
   loadBalancer: {}
