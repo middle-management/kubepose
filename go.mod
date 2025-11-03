@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/alexflint/go-arg v1.6.0
-	github.com/compose-spec/compose-go/v2 v2.9.0
+	github.com/compose-spec/compose-go/v2 v2.9.1
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.9.3
 	k8s.io/api v0.34.1
@@ -41,6 +41,5 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 )
