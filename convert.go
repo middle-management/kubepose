@@ -345,6 +345,7 @@ func (t Transformer) createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 		SecurityContext:           getSecurityContext(service),
 		ServiceAccountName:        service.Annotations[ServiceAccountNameAnnotationKey],
 		TopologySpreadConstraints: getTopologySpreadConstraints(service),
+		HostAliases:               t.convertExtraHosts(service.ExtraHosts),
 	}
 }
 
@@ -455,6 +456,38 @@ func (t Transformer) convertServicePorts(ports []types.ServicePortConfig) []core
 		servicePorts = append(servicePorts, servicePort)
 	}
 	return servicePorts
+}
+
+func (t Transformer) convertExtraHosts(extraHosts types.HostsList) []corev1.HostAlias {
+	if len(extraHosts) == 0 {
+		return nil
+	}
+
+	// HostsList is map[hostname][]ip, we need to invert it to map[ip][]hostname
+	ipToHostnames := make(map[string][]string)
+	for hostname, ips := range extraHosts {
+		for _, ip := range ips {
+			ipToHostnames[ip] = append(ipToHostnames[ip], hostname)
+		}
+	}
+
+	// Convert to HostAlias slice
+	var hostAliases []corev1.HostAlias
+	for ip, hostnames := range ipToHostnames {
+		// Sort hostnames for consistent output
+		sort.Strings(hostnames)
+		hostAliases = append(hostAliases, corev1.HostAlias{
+			IP:        ip,
+			Hostnames: hostnames,
+		})
+	}
+
+	// Sort by IP for consistent output
+	sort.Slice(hostAliases, func(i, j int) bool {
+		return hostAliases[i].IP < hostAliases[j].IP
+	})
+
+	return hostAliases
 }
 
 func convertProtocol(protocol string) corev1.Protocol {
