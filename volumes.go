@@ -301,10 +301,13 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 			} else if mapping.IsImage {
 				// Image volumes are always read-only
 				volumeMount = corev1.VolumeMount{
-					Name:        volumeName,
-					MountPath:   serviceVolume.Target,
-					ReadOnly:    true,
-					SubPathExpr: serviceVolume.Volume.Subpath,
+					Name:      volumeName,
+					MountPath: serviceVolume.Target,
+					ReadOnly:  true,
+				}
+				// Only set SubPathExpr if Volume is not nil
+				if serviceVolume.Volume != nil {
+					volumeMount.SubPathExpr = serviceVolume.Volume.Subpath
 				}
 			} else if serviceVolume.Type == "volume" {
 				volumeMount = corev1.VolumeMount{
