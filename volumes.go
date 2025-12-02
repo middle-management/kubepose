@@ -18,8 +18,11 @@ type VolumeMapping struct {
 	ConfigMapName string
 	MountPath     string
 	HostPath      string
+	ImageRef      string
+	PullPolicy    string
 	IsConfigMap   bool
 	IsHostPath    bool
+	IsImage       bool
 	IsTmpfs       bool
 	TmpfsSize     *resource.Quantity
 }
@@ -191,6 +194,23 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 				MountPath:     mountPath,
 				IsConfigMap:   true,
 			}
+		} else if serviceVolume.Type == "image" {
+			// Handle image type volumes
+			// Use the source as the image reference
+			volumeName := fmt.Sprintf("image-%s", strings.NewReplacer("/", "-", ":", "-", ".", "-").Replace(serviceVolume.Source))
+
+			// Determine pull policy based on image tag (same logic as Kubernetes)
+			pullPolicy := "IfNotPresent"
+			if strings.HasSuffix(serviceVolume.Source, ":latest") {
+				pullPolicy = "Always"
+			}
+
+			volumeMappings[serviceVolume.Source] = VolumeMapping{
+				Name:       volumeName,
+				ImageRef:   serviceVolume.Source,
+				PullPolicy: pullPolicy,
+				IsImage:    true,
+			}
 		}
 	}
 
@@ -231,6 +251,18 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 							},
 						},
 					}
+				} else if mapping.IsImage {
+					// Convert pull policy string to PullPolicy type
+					pullPolicy := corev1.PullPolicy(mapping.PullPolicy)
+					volume = corev1.Volume{
+						Name: volumeName,
+						VolumeSource: corev1.VolumeSource{
+							Image: &corev1.ImageVolumeSource{
+								Reference: mapping.ImageRef,
+								PullPolicy: &pullPolicy,
+							},
+						},
+					}
 				} else if serviceVolume.Type == "volume" {
 					volume = corev1.Volume{
 						Name: volumeName,
@@ -265,6 +297,14 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 					Name:      volumeName,
 					MountPath: serviceVolume.Target,
 					ReadOnly:  true,
+				}
+			} else if mapping.IsImage {
+				// Image volumes are always read-only
+				volumeMount = corev1.VolumeMount{
+					Name:        volumeName,
+					MountPath:   serviceVolume.Target,
+					ReadOnly:    true,
+					SubPathExpr: serviceVolume.Volume.Subpath,
 				}
 			} else if serviceVolume.Type == "volume" {
 				volumeMount = corev1.VolumeMount{
