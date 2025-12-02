@@ -88,6 +88,9 @@ spec:
           name: postgres-cee76ffa
           readOnly: true
           subPath: init.sql
+        - mountPath: /image-data
+          name: image-busybox-latest
+          readOnly: true
       restartPolicy: Always
       volumes:
       - emptyDir:
@@ -102,6 +105,10 @@ spec:
       - configMap:
           name: postgres-cee76ffa
         name: postgres-cee76ffa
+      - image:
+          pullPolicy: Always
+          reference: busybox:latest
+        name: image-busybox-latest
 status: {}
 
 ---
