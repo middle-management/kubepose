@@ -258,8 +258,8 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 						Name: volumeName,
 						VolumeSource: corev1.VolumeSource{
 							Image: &corev1.ImageVolumeSource{
-								Reference: mapping.ImageRef,
-								PullPolicy: &pullPolicy,
+								Reference:  mapping.ImageRef,
+								PullPolicy: pullPolicy,
 							},
 						},
 					}
