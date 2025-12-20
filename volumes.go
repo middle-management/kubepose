@@ -296,7 +296,7 @@ func (t Transformer) updatePodSpecWithVolumes(spec *corev1.PodSpec, service type
 				volumeMount = corev1.VolumeMount{
 					Name:      volumeName,
 					MountPath: serviceVolume.Target,
-					ReadOnly:  true,
+					ReadOnly:  serviceVolume.ReadOnly,
 				}
 			} else if mapping.IsImage {
 				// Image volumes are always read-only
