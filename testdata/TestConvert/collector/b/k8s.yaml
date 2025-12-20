@@ -80,7 +80,7 @@ spec:
           subPath: config.yaml
         - mountPath: /var/log/pods
           name: pod-logs
-          readOnly: true
+          readOnly: false
       restartPolicy: Always
       serviceAccountName: otelcontribcol
       volumes:
