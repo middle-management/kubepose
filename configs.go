@@ -16,6 +16,7 @@ import (
 
 type ConfigMapping struct {
 	Name     string
+	Key      string
 	External bool
 }
 
@@ -61,7 +62,7 @@ func (t Transformer) processConfigs(project *types.Project, resources *Resources
 		}
 
 		k8sConfigName := fmt.Sprintf("%s-%s", name, shortHash)
-		configMapping[name] = ConfigMapping{Name: k8sConfigName}
+		configMapping[name] = ConfigMapping{Name: k8sConfigName, Key: filename}
 
 		k8sConfigMap := corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
@@ -133,7 +134,7 @@ func (t Transformer) updatePodSpecWithConfigs(spec *corev1.PodSpec, service type
 					// For non-external configs, mount only the specific key
 					volume.VolumeSource.ConfigMap.Items = []corev1.KeyToPath{
 						{
-							Key:  configDefaultKey,
+							Key:  mapping.Key,
 							Path: filepath.Base(target),
 						},
 					}
