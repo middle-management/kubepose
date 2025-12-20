@@ -18,24 +18,22 @@ spec:
         name: test
         resources: {}
         volumeMounts:
-        - mountPath: /var/tmp
-          name: logs-default
-          readOnly: false
         - mountPath: /var/log
           name: logs-ro
           readOnly: true
         - mountPath: /var/data
           name: logs-rw
-          readOnly: false
+        - mountPath: /var/tmp
+          name: logs-default
       restartPolicy: Always
       volumes:
-      - hostPath:
-          path: /host/tmp
-        name: logs-default
       - hostPath:
           path: /host/logs
         name: logs-ro
       - hostPath:
           path: /host/data
         name: logs-rw
+      - hostPath:
+          path: /host/tmp
+        name: logs-default
 status: {}
