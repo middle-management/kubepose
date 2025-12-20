@@ -1,0 +1,18 @@
+services:
+  test:
+    image: busybox
+    volumes:
+      - logs-ro:/var/log:ro
+      - logs-rw:/var/data:rw
+      - logs-default:/var/tmp
+
+volumes:
+  logs-ro:
+    labels:
+      - kubepose.volume.hostPath=/host/logs
+  logs-rw:
+    labels:
+      - kubepose.volume.hostPath=/host/data
+  logs-default:
+    labels:
+      - kubepose.volume.hostPath=/host/tmp

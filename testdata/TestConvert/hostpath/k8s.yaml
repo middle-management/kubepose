@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test
+    spec:
+      containers:
+      - image: busybox
+        imagePullPolicy: IfNotPresent
+        name: test
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/tmp
+          name: logs-default
+          readOnly: false
+        - mountPath: /var/log
+          name: logs-ro
+          readOnly: true
+        - mountPath: /var/data
+          name: logs-rw
+          readOnly: false
+      restartPolicy: Always
+      volumes:
+      - hostPath:
+          path: /host/tmp
+        name: logs-default
+      - hostPath:
+          path: /host/logs
+        name: logs-ro
+      - hostPath:
+          path: /host/data
+        name: logs-rw
+status: {}
