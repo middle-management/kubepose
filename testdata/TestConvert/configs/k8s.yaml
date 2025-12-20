@@ -78,7 +78,7 @@ spec:
         name: my_config
       - configMap:
           items:
-          - key: content
+          - key: config.json
             path: file_config
           name: file_config-123b70c3
         name: file_config
