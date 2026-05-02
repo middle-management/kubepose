@@ -51,6 +51,12 @@ type Transformer struct {
 }
 
 func (t Transformer) Convert(project *types.Project) (*Resources, error) {
+	for _, name := range project.ServiceNames() {
+		if err := validateService(project.Services[name]); err != nil {
+			return nil, fmt.Errorf("service %q: %w", name, err)
+		}
+	}
+
 	resources := &Resources{}
 
 	secretMappings, err := t.processSecrets(project, resources)
@@ -182,6 +188,20 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 	}
 
 	return resources, nil
+}
+
+// validateService rejects service configurations that the converter cannot
+// faithfully translate. Failing fast here keeps the rest of the conversion
+// pipeline panic-free.
+func validateService(service types.ServiceConfig) error {
+	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
+		switch service.HealthCheck.Test[0] {
+		case "CMD-SHELL", "CMD", "NONE":
+		default:
+			return fmt.Errorf("unsupported healthcheck test type %q (expected CMD, CMD-SHELL, or NONE)", service.HealthCheck.Test[0])
+		}
+	}
+	return nil
 }
 
 func (t Transformer) addContainersToSpec(podSpec *corev1.PodSpec, appServices, initServices []types.ServiceConfig) {
@@ -692,7 +712,9 @@ func getProbes(service types.ServiceConfig) (liveness *corev1.Probe, readiness *
 		case "NONE":
 			return nil, nil, nil
 		default:
-			panic("unsupported health check type: " + service.HealthCheck.Test[0])
+			// Unsupported types are rejected upfront by validateService;
+			// fall through here defensively so callers never panic.
+			return nil, nil, nil
 		}
 
 		probe = &corev1.Probe{
