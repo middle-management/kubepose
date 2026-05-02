@@ -1,0 +1,9 @@
+services:
+  api:
+    image: nginx
+    ports:
+      - "8080:8080"
+    annotations:
+      kubepose.hpa.minReplicas: "2"
+      kubepose.hpa.maxReplicas: "10"
+      kubepose.hpa.targetCPUUtilization: "75"

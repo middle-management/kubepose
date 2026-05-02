@@ -1,0 +1,6 @@
+services:
+  nightly-report:
+    image: alpine:3
+    command: ["sh", "-c", "echo running report"]
+    annotations:
+      kubepose.cronjob.schedule: "0 0 * * *"

@@ -1,0 +1,9 @@
+services:
+  database:
+    image: postgres:16
+    annotations:
+      kubepose.workload: StatefulSet
+    ports:
+      - "5432:5432"
+    deploy:
+      replicas: 3

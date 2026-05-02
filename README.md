@@ -92,8 +92,9 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Multi-Container Pods | ✅ | Group via `kubepose.service.group` |
 | Init Containers | ✅ | Mark with `kubepose.container.type: init` |
 | Sidecar Containers | ✅ | Init containers with `restart: always` |
-| StatefulSets | 🚧 | Planned |
-| CronJobs | 🚧 | Planned |
+| StatefulSets | ✅ | Enable with `kubepose.workload: StatefulSet` |
+| CronJobs | ✅ | Enable with `kubepose.cronjob.schedule: "<cron>"` |
+| HorizontalPodAutoscaler | ✅ | Enable with `kubepose.hpa.{minReplicas,maxReplicas,targetCPUUtilization}` |
 
 ### Container Configuration
 

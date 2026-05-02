@@ -215,6 +215,121 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
+	t.Run("unknown workload type returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "web",
+			Image: "nginx",
+			Annotations: map[string]string{
+				kubepose.WorkloadTypeAnnotationKey: "ReplicaSet",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "unsupported kubepose.workload") {
+			t.Fatalf("expected unsupported workload error, got: %v", err)
+		}
+	})
+
+	t.Run("empty cronjob schedule returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "job",
+			Image: "alpine",
+			Annotations: map[string]string{
+				kubepose.CronJobScheduleAnnotationKey: "",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "must not be empty") {
+			t.Fatalf("expected empty-schedule error, got: %v", err)
+		}
+	})
+
+	t.Run("hpa on cronjob is rejected", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "job",
+			Image: "alpine",
+			Annotations: map[string]string{
+				kubepose.CronJobScheduleAnnotationKey: "0 * * * *",
+				kubepose.HPAMaxReplicasAnnotationKey:  "5",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "incompatible") {
+			t.Fatalf("expected HPA-on-CronJob error, got: %v", err)
+		}
+	})
+
+	t.Run("hpa without max replicas returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "api",
+			Image: "nginx",
+			Annotations: map[string]string{
+				kubepose.HPAMinReplicasAnnotationKey: "2",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "maxReplicas") {
+			t.Fatalf("expected missing-maxReplicas error, got: %v", err)
+		}
+	})
+
+	t.Run("hpa min greater than max returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "api",
+			Image: "nginx",
+			Annotations: map[string]string{
+				kubepose.HPAMinReplicasAnnotationKey: "10",
+				kubepose.HPAMaxReplicasAnnotationKey: "2",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "greater than maxReplicas") {
+			t.Fatalf("expected min>max error, got: %v", err)
+		}
+	})
+
+	t.Run("hpa with non-numeric value returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "api",
+			Image: "nginx",
+			Annotations: map[string]string{
+				kubepose.HPAMaxReplicasAnnotationKey: "lots",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "must be a positive integer") {
+			t.Fatalf("expected positive-integer error, got: %v", err)
+		}
+	})
+
+	t.Run("workload statefulset with hpa targets statefulset", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "db",
+			Image: "postgres",
+			Annotations: map[string]string{
+				kubepose.WorkloadTypeAnnotationKey:   "StatefulSet",
+				kubepose.HPAMaxReplicasAnnotationKey: "5",
+			},
+		})
+		resources, err := kubepose.Transformer{}.Convert(project)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(resources.HorizontalPodAutoscalers) != 1 {
+			t.Fatalf("expected 1 HPA, got %d", len(resources.HorizontalPodAutoscalers))
+		}
+		ref := resources.HorizontalPodAutoscalers[0].Spec.ScaleTargetRef
+		if ref.Kind != "StatefulSet" || ref.Name != "db" {
+			t.Fatalf("expected StatefulSet/db target, got %+v", ref)
+		}
+	})
+
 	t.Run("CMD with empty command list still produces a probe", func(t *testing.T) {
 		t.Parallel()
 		// Documents current behavior: ["CMD"] with no following args

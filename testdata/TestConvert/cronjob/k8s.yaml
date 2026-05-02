@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  annotations:
+    kubepose.cronjob.schedule: 0 0 * * *
+  name: nightly-report
+spec:
+  jobTemplate:
+    metadata:
+      annotations:
+        kubepose.cronjob.schedule: 0 0 * * *
+    spec:
+      template:
+        metadata:
+          annotations:
+            kubepose.cronjob.schedule: 0 0 * * *
+          labels:
+            app.kubernetes.io/name: nightly-report
+        spec:
+          containers:
+          - args:
+            - sh
+            - -c
+            - echo running report
+            image: alpine:3
+            imagePullPolicy: IfNotPresent
+            name: nightly-report
+            resources: {}
+          restartPolicy: OnFailure
+  schedule: 0 0 * * *
+status: {}

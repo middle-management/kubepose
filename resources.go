@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,15 +17,18 @@ import (
 )
 
 type Resources struct {
-	Pods                   []*corev1.Pod
-	Secrets                []*corev1.Secret
-	Services               []*corev1.Service
-	ConfigMaps             []*corev1.ConfigMap
-	DaemonSets             []*appsv1.DaemonSet
-	Deployments            []*appsv1.Deployment
-	Ingresses              []*networkingv1.Ingress
-	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
-	ServiceAccounts        []*corev1.ServiceAccount
+	Pods                     []*corev1.Pod
+	Secrets                  []*corev1.Secret
+	Services                 []*corev1.Service
+	ConfigMaps               []*corev1.ConfigMap
+	DaemonSets               []*appsv1.DaemonSet
+	Deployments              []*appsv1.Deployment
+	StatefulSets             []*appsv1.StatefulSet
+	CronJobs                 []*batchv1.CronJob
+	HorizontalPodAutoscalers []*autoscalingv2.HorizontalPodAutoscaler
+	Ingresses                []*networkingv1.Ingress
+	PersistentVolumeClaims   []*corev1.PersistentVolumeClaim
+	ServiceAccounts          []*corev1.ServiceAccount
 }
 
 type k8sObject interface {
@@ -46,6 +51,9 @@ func (r *Resources) Write(writer io.Writer) error {
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.DaemonSets)...)
 	items = append(items, toObjects(r.Deployments)...)
+	items = append(items, toObjects(r.StatefulSets)...)
+	items = append(items, toObjects(r.CronJobs)...)
+	items = append(items, toObjects(r.HorizontalPodAutoscalers)...)
 	items = append(items, toObjects(r.Pods)...)
 	items = append(items, toObjects(r.Services)...)
 	items = append(items, toObjects(r.Ingresses)...)

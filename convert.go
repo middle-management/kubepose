@@ -106,26 +106,22 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		})
 
 		for _, service := range appServices {
-			if service.Deploy != nil && service.Deploy.Mode == "global" {
-				ds := t.createDaemonSet(resources, service)
-				t.addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&ds.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&ds.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources)
+			podSpec, kind := t.dispatchWorkload(resources, service)
+			t.addContainersToSpec(podSpec, appServices, initServices)
+			for _, svc := range append(appServices, initServices...) {
+				t.updatePodSpecWithSecrets(podSpec, svc, secretMappings)
+				t.updatePodSpecWithConfigs(podSpec, svc, configMappings)
+				t.updatePodSpecWithVolumes(podSpec, svc, volumeMappings, resources)
+			}
+			removeDuplicateVolumeMounts(podSpec.Containers)
+			removeDuplicateVolumeMounts(podSpec.InitContainers)
+
+			if hasHPA(service) {
+				hpa, err := t.createHorizontalPodAutoscaler(service, kind)
+				if err != nil {
+					return nil, fmt.Errorf("service %q: %w", service.Name, err)
 				}
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
-			} else {
-				deploy := t.createDeployment(resources, service)
-				t.addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources)
-				}
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
+				resources.HorizontalPodAutoscalers = append(resources.HorizontalPodAutoscalers, hpa)
 			}
 
 			if len(service.Ports) > 0 {
@@ -165,7 +161,45 @@ func validateService(service types.ServiceConfig) error {
 			return fmt.Errorf("unsupported healthcheck test type %q (expected CMD, CMD-SHELL, or NONE)", service.HealthCheck.Test[0])
 		}
 	}
+	if w, ok := service.Annotations[WorkloadTypeAnnotationKey]; ok {
+		switch w {
+		case "Deployment", "StatefulSet":
+		default:
+			return fmt.Errorf("unsupported %s %q (expected Deployment or StatefulSet)", WorkloadTypeAnnotationKey, w)
+		}
+	}
+	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok {
+		if schedule == "" {
+			return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
+		}
+		if hasHPA(service) {
+			return fmt.Errorf("HPA annotations are incompatible with %s", CronJobScheduleAnnotationKey)
+		}
+		if _, ok := service.Annotations[WorkloadTypeAnnotationKey]; ok {
+			return fmt.Errorf("%s and %s are mutually exclusive", CronJobScheduleAnnotationKey, WorkloadTypeAnnotationKey)
+		}
+	}
 	return nil
+}
+
+// dispatchWorkload creates the appropriate workload object for the service
+// (CronJob, StatefulSet, DaemonSet, or Deployment) and returns a pointer to
+// its inner pod spec along with the workload kind for HPA target refs.
+func (t Transformer) dispatchWorkload(resources *Resources, service types.ServiceConfig) (*corev1.PodSpec, string) {
+	if _, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok {
+		c := t.createCronJob(resources, service)
+		return &c.Spec.JobTemplate.Spec.Template.Spec, "CronJob"
+	}
+	if service.Annotations[WorkloadTypeAnnotationKey] == "StatefulSet" {
+		s := t.createStatefulSet(resources, service)
+		return &s.Spec.Template.Spec, "StatefulSet"
+	}
+	if service.Deploy != nil && service.Deploy.Mode == "global" {
+		ds := t.createDaemonSet(resources, service)
+		return &ds.Spec.Template.Spec, "DaemonSet"
+	}
+	deploy := t.createDeployment(resources, service)
+	return &deploy.Spec.Template.Spec, "Deployment"
 }
 
 // getServiceName returns the kubernetes resource name for a compose service:
