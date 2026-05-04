@@ -1,0 +1,6 @@
+services:
+  cleanup:
+    image: alpine
+    command: ["sh", "-c", "echo cleaning up"]
+    annotations:
+      kubepose.cronjob.schedule: "0 * * * *"

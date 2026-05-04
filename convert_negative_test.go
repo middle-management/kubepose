@@ -239,6 +239,21 @@ func TestConvertNegative(t *testing.T) {
 			t.Fatalf("expected empty Command, got %v", c.LivenessProbe.Exec.Command)
 		}
 	})
+
+	t.Run("empty cronjob schedule returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "job",
+			Image: "alpine",
+			Annotations: map[string]string{
+				kubepose.CronJobScheduleAnnotationKey: "",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "must not be empty") {
+			t.Fatalf("expected empty-schedule error, got: %v", err)
+		}
+	})
 }
 
 func projectWith(svc types.ServiceConfig) *types.Project {

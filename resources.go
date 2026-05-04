@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +22,7 @@ type Resources struct {
 	ConfigMaps             []*corev1.ConfigMap
 	DaemonSets             []*appsv1.DaemonSet
 	Deployments            []*appsv1.Deployment
+	CronJobs               []*batchv1.CronJob
 	Ingresses              []*networkingv1.Ingress
 	PersistentVolumeClaims []*corev1.PersistentVolumeClaim
 	ServiceAccounts        []*corev1.ServiceAccount
@@ -46,6 +48,7 @@ func (r *Resources) Write(writer io.Writer) error {
 	items = append(items, toObjects(r.Secrets)...)
 	items = append(items, toObjects(r.DaemonSets)...)
 	items = append(items, toObjects(r.Deployments)...)
+	items = append(items, toObjects(r.CronJobs)...)
 	items = append(items, toObjects(r.Pods)...)
 	items = append(items, toObjects(r.Services)...)
 	items = append(items, toObjects(r.Ingresses)...)

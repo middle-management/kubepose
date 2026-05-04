@@ -56,7 +56,7 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 	groups := make(map[string][]types.ServiceConfig)
 	for _, service := range project.Services {
 		// Handle standalone pods (non-Always restart policy)
-		if getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
+		if _, isCronJob := service.Annotations[CronJobScheduleAnnotationKey]; !isCronJob && getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
 			pod := t.createPod(service)
 			pod.Spec.Containers = []corev1.Container{t.createContainer(service)}
 			t.updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
@@ -106,27 +106,25 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		})
 
 		for _, service := range appServices {
-			if service.Deploy != nil && service.Deploy.Mode == "global" {
+			var podSpec *corev1.PodSpec
+			if _, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok {
+				cj := t.createCronJob(resources, service)
+				podSpec = &cj.Spec.JobTemplate.Spec.Template.Spec
+			} else if service.Deploy != nil && service.Deploy.Mode == "global" {
 				ds := t.createDaemonSet(resources, service)
-				t.addContainersToSpec(&ds.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&ds.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&ds.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&ds.Spec.Template.Spec, svc, volumeMappings, resources)
-				}
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(ds.Spec.Template.Spec.InitContainers)
+				podSpec = &ds.Spec.Template.Spec
 			} else {
 				deploy := t.createDeployment(resources, service)
-				t.addContainersToSpec(&deploy.Spec.Template.Spec, appServices, initServices)
-				for _, svc := range append(appServices, initServices...) {
-					t.updatePodSpecWithSecrets(&deploy.Spec.Template.Spec, svc, secretMappings)
-					t.updatePodSpecWithConfigs(&deploy.Spec.Template.Spec, svc, configMappings)
-					t.updatePodSpecWithVolumes(&deploy.Spec.Template.Spec, svc, volumeMappings, resources)
-				}
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.Containers)
-				removeDuplicateVolumeMounts(deploy.Spec.Template.Spec.InitContainers)
+				podSpec = &deploy.Spec.Template.Spec
 			}
+			t.addContainersToSpec(podSpec, appServices, initServices)
+			for _, svc := range append(appServices, initServices...) {
+				t.updatePodSpecWithSecrets(podSpec, svc, secretMappings)
+				t.updatePodSpecWithConfigs(podSpec, svc, configMappings)
+				t.updatePodSpecWithVolumes(podSpec, svc, volumeMappings, resources)
+			}
+			removeDuplicateVolumeMounts(podSpec.Containers)
+			removeDuplicateVolumeMounts(podSpec.InitContainers)
 
 			if len(service.Ports) > 0 {
 				svc := t.createService(service)
@@ -164,6 +162,9 @@ func validateService(service types.ServiceConfig) error {
 		default:
 			return fmt.Errorf("unsupported healthcheck test type %q (expected CMD, CMD-SHELL, or NONE)", service.HealthCheck.Test[0])
 		}
+	}
+	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
+		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
 	}
 	return nil
 }

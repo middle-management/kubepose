@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  annotations:
+    kubepose.cronjob.schedule: 0 * * * *
+  name: cleanup
+spec:
+  jobTemplate:
+    metadata:
+      annotations:
+        kubepose.cronjob.schedule: 0 * * * *
+    spec:
+      template:
+        metadata:
+          annotations:
+            kubepose.cronjob.schedule: 0 * * * *
+          labels:
+            app.kubernetes.io/name: cleanup
+        spec:
+          containers:
+          - args:
+            - sh
+            - -c
+            - echo cleaning up
+            image: alpine
+            imagePullPolicy: IfNotPresent
+            name: cleanup
+            resources: {}
+          restartPolicy: OnFailure
+  schedule: 0 * * * *
+status: {}

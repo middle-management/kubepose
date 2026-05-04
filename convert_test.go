@@ -102,6 +102,10 @@ func TestConvert(t *testing.T) {
 			Files:    []string{"testdata/hostpath/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
+		{Name: "cronjob/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/cronjob/compose.yaml"},
+			Profiles: []string{"*"},
+		}, DryRun: TestRunKubectlDryRun},
 	}
 	for _, tt := range tests {
 		tt := tt
