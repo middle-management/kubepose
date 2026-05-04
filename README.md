@@ -93,7 +93,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Init Containers | ✅ | Mark with `kubepose.container.type: init` |
 | Sidecar Containers | ✅ | Init containers with `restart: always` |
 | StatefulSets | 🚧 | Planned |
-| CronJobs | 🚧 | Planned |
+| CronJobs | ✅ | Enable with `kubepose.cronjob.schedule: "<cron>"` |
 
 ### Container Configuration
 
