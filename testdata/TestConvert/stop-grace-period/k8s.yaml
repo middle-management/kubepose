@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fast-worker
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: fast-worker
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: fast-worker
+    spec:
+      containers:
+      - image: busybox
+        imagePullPolicy: IfNotPresent
+        name: fast-worker
+        resources: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 1
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immediate
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: immediate
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: immediate
+    spec:
+      containers:
+      - image: busybox
+        imagePullPolicy: IfNotPresent
+        name: immediate
+        resources: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+    spec:
+      containers:
+      - image: busybox
+        imagePullPolicy: IfNotPresent
+        name: worker
+        resources: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 300
+status: {}

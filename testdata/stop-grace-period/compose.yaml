@@ -1,0 +1,12 @@
+services:
+  worker:
+    image: busybox
+    stop_grace_period: 5m
+
+  fast-worker:
+    image: busybox
+    stop_grace_period: 500ms
+
+  immediate:
+    image: busybox
+    stop_grace_period: 0s

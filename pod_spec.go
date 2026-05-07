@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/sirupsen/logrus"
@@ -15,11 +16,12 @@ import (
 
 func (t Transformer) createPodSpec(service types.ServiceConfig) corev1.PodSpec {
 	return corev1.PodSpec{
-		RestartPolicy:             getRestartPolicy(service),
-		SecurityContext:           getSecurityContext(service),
-		ServiceAccountName:        service.Annotations[ServiceAccountNameAnnotationKey],
-		TopologySpreadConstraints: getTopologySpreadConstraints(service),
-		HostAliases:               convertExtraHosts(service.ExtraHosts),
+		RestartPolicy:                 getRestartPolicy(service),
+		SecurityContext:               getSecurityContext(service),
+		ServiceAccountName:            service.Annotations[ServiceAccountNameAnnotationKey],
+		TopologySpreadConstraints:     getTopologySpreadConstraints(service),
+		HostAliases:                   convertExtraHosts(service.ExtraHosts),
+		TerminationGracePeriodSeconds: getTerminationGracePeriodSeconds(service),
 	}
 }
 
@@ -163,4 +165,17 @@ func getMatchLabels(service types.ServiceConfig) map[string]string {
 		}
 	}
 	return matchLabels
+}
+
+func getTerminationGracePeriodSeconds(service types.ServiceConfig) *int64 {
+	if service.StopGracePeriod == nil {
+		return nil
+	}
+	d := time.Duration(*service.StopGracePeriod)
+	if d < 0 {
+		return nil
+	}
+	// Ceil to whole seconds so any non-zero grace stays non-zero on Kubernetes.
+	seconds := int64((d + time.Second - 1) / time.Second)
+	return &seconds
 }
