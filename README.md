@@ -108,6 +108,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Resource Limits | ✅ | CPU and memory constraints |
 | Health Checks | ✅ | Supports test commands and HTTP checks |
 | User Settings | ✅ | Numeric user/group IDs only |
+| Stop Grace Period | ✅ | `stop_grace_period` maps to `terminationGracePeriodSeconds` (sub-second values round up) |
 
 ### Networking
 
