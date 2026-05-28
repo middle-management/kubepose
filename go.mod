@@ -1,6 +1,6 @@
 module github.com/middle-management/kubepose
 
-go 1.26.0
+go 1.26.3
 
 require (
 	github.com/alexflint/go-arg v1.6.1
