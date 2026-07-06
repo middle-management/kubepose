@@ -110,6 +110,10 @@ func TestConvert(t *testing.T) {
 			Files:    []string{"testdata/stop-grace-period/compose.yaml"},
 			Profiles: []string{"*"},
 		}, DryRun: TestRunKubectlDryRun | TestRunComposeDryRun},
+		{Name: "pre-start/k8s.yaml", Options: project.Options{
+			Files:    []string{"testdata/pre-start/compose.yaml"},
+			Profiles: []string{"*"},
+		}, DryRun: TestRunKubectlDryRun},
 	}
 	for _, tt := range tests {
 		tt := tt

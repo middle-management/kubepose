@@ -17,6 +17,8 @@ nextInitService:
 				continue nextInitService
 			}
 		}
+		// pre_start hooks run to completion before their service starts
+		podSpec.InitContainers = append(podSpec.InitContainers, t.createPreStartContainers(svc)...)
 		podSpec.InitContainers = append(podSpec.InitContainers, t.createContainer(svc))
 	}
 nextService:
@@ -26,6 +28,7 @@ nextService:
 				continue nextService
 			}
 		}
+		podSpec.InitContainers = append(podSpec.InitContainers, t.createPreStartContainers(svc)...)
 		podSpec.Containers = append(podSpec.Containers, t.createContainer(svc))
 	}
 }

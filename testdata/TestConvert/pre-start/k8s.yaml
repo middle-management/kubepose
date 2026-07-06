@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      containers:
+      - env:
+        - name: DATA_DIR
+          value: /var/lib/data
+        image: nginx
+        imagePullPolicy: IfNotPresent
+        name: web
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/data
+          name: data
+      initContainers:
+      - command:
+        - /docker-entrypoint.d/migrate.sh
+        - up
+        env:
+        - name: DATA_DIR
+          value: /var/lib/data
+        - name: MIGRATION_STEP
+          value: "1"
+        image: nginx
+        imagePullPolicy: IfNotPresent
+        name: web-pre-start-0
+        resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/data
+          name: data
+      - command:
+        - chown
+        - -R
+        - 1000:1000
+        - /var/lib/data
+        env:
+        - name: DATA_DIR
+          value: /var/lib/data
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        name: web-pre-start-1
+        resources: {}
+        securityContext:
+          runAsGroup: 0
+          runAsUser: 0
+        volumeMounts:
+        - mountPath: /var/lib/data
+          name: data
+        workingDir: /var/lib/data
+      restartPolicy: Always
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: data
+status: {}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: migrate
+spec:
+  containers:
+  - args:
+    - echo
+    - done
+    image: alpine
+    imagePullPolicy: IfNotPresent
+    name: migrate
+    resources: {}
+  initContainers:
+  - command:
+    - echo
+    - preparing
+    image: alpine
+    imagePullPolicy: IfNotPresent
+    name: migrate-pre-start-0
+    resources: {}
+  restartPolicy: Never
+status: {}
