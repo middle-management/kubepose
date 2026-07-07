@@ -1,0 +1,31 @@
+services:
+  # HPA floor from deploy.replicas, default 80% CPU target
+  web:
+    image: nginx
+    annotations:
+      kubepose.hpa.maxReplicas: 10
+    deploy:
+      replicas: 3
+      resources:
+        reservations:
+          cpus: "2"
+          memory: 1G
+
+  # Explicit floor and CPU target; no deploy.replicas at all
+  api:
+    image: nginx
+    annotations:
+      kubepose.hpa.minReplicas: 2
+      kubepose.hpa.maxReplicas: 6
+      kubepose.hpa.cpu: 70
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+  # No HPA annotations — Deployment keeps its pinned replicas
+  worker:
+    image: nginx
+    deploy:
+      replicas: 2

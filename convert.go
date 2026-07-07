@@ -118,6 +118,15 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 			} else {
 				deploy := t.createDeployment(resources, service)
 				podSpec = &deploy.Spec.Template.Spec
+				if hasHorizontalPodAutoscaler(service) {
+					// The HPA owns the replica count; a pinned spec.replicas
+					// would reset its chosen scale on every apply. Cleared
+					// here rather than in createDeployment so it also covers
+					// a grouped service whose Deployment was created first
+					// by another member.
+					deploy.Spec.Replicas = nil
+					t.createHorizontalPodAutoscaler(resources, service)
+				}
 			}
 			t.addContainersToSpec(podSpec, appServices, initServices)
 			for _, svc := range append(appServices, initServices...) {
@@ -171,7 +180,19 @@ func validateService(service types.ServiceConfig) error {
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
 		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
 	}
-	return nil
+	// Reject HPA annotations on the two service shapes that never reach the
+	// Deployment branch in Convert; they would otherwise be silent no-ops.
+	// Checked here (not in validateHpaAnnotations) to keep getRestartPolicy
+	// and corev1 usage in the file that already imports them.
+	if _, hasHpa := service.Annotations[HpaMaxReplicasAnnotationKey]; hasHpa {
+		if service.Annotations[ContainerTypeAnnotationKey] == "init" {
+			return fmt.Errorf("%s has no effect on an init container service", HpaMaxReplicasAnnotationKey)
+		}
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways {
+			return fmt.Errorf("%s requires restart: always (the service converts to a standalone Pod, which cannot be autoscaled)", HpaMaxReplicasAnnotationKey)
+		}
+	}
+	return validateHpaAnnotations(service)
 }
 
 // getServiceName returns the kubernetes resource name for a compose service:

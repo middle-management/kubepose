@@ -94,6 +94,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Sidecar Containers | ✅ | Init containers with `restart: always` |
 | StatefulSets | 🚧 | Planned |
 | CronJobs | ✅ | Enable with `kubepose.cronjob.schedule: "<cron>"` |
+| HorizontalPodAutoscalers | ✅ | Enable with `kubepose.hpa.maxReplicas: "<n>"` |
 
 ### Container Configuration
 
@@ -170,6 +171,41 @@ Key unsupported features include:
 | 🚧 | Coming Soon |
 | ❌ | Not Supported |
 
+
+### Autoscaling
+
+Setting `kubepose.hpa.maxReplicas` on a service emits an `autoscaling/v2`
+HorizontalPodAutoscaler targeting the service's Deployment, scaling on average
+CPU utilization:
+
+```yaml
+services:
+  web:
+    annotations:
+      kubepose.hpa.maxReplicas: 10 # required — enables the HPA
+      kubepose.hpa.minReplicas: 3  # optional — defaults to deploy.replicas, else 1
+      kubepose.hpa.cpu: 70         # optional — target average CPU %, defaults to 80
+    deploy:
+      replicas: 3
+      resources:
+        reservations:
+          cpus: "2" # required — utilization is a percentage of the CPU request
+          memory: 1G
+```
+
+The Deployment is emitted **without** `spec.replicas` so that re-applying
+manifests does not reset the scale the HPA has chosen. `deploy.replicas` still
+matters: it is the default `minReplicas`. The annotations are rejected on
+CronJob (`kubepose.cronjob.schedule`) and DaemonSet (`deploy.mode: global`)
+services, and require a CPU reservation.
+
+The generated HPA needs [metrics-server](https://github.com/kubernetes-sigs/metrics-server)
+running in the cluster (preinstalled or one click on most managed clusters).
+The CPU reservation must be explicit: a service with only `deploy.resources.limits`
+is rejected, even though Kubernetes would default the request from the limit.
+Memory-based targets are intentionally not supported — most runtimes do not
+release memory under reduced load, so memory utilization never drops and the
+HPA would scale up but never back down.
 
 ### Update Strategies
 

@@ -261,3 +261,153 @@ func projectWith(svc types.ServiceConfig) *types.Project {
 		Services: types.Services{svc.Name: svc},
 	}
 }
+
+func TestConvertHpaValidation(t *testing.T) {
+	t.Parallel()
+
+	withCpuReservation := func(svc types.ServiceConfig) types.ServiceConfig {
+		if svc.Deploy == nil {
+			svc.Deploy = &types.DeployConfig{}
+		}
+		svc.Deploy.Resources.Reservations = &types.Resource{NanoCPUs: 2}
+		return svc
+	}
+
+	cases := []struct {
+		name    string
+		service types.ServiceConfig
+		wantErr string
+	}{
+		{
+			name: "minReplicas without maxReplicas names only the set key",
+			service: types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{kubepose.HpaMinReplicasAnnotationKey: "2"},
+			},
+			wantErr: kubepose.HpaMinReplicasAnnotationKey + " has no effect without",
+		},
+		{
+			name: "cpu without maxReplicas names only the set key",
+			service: types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{kubepose.HpaCpuAnnotationKey: "70"},
+			},
+			wantErr: kubepose.HpaCpuAnnotationKey + " has no effect without",
+		},
+		{
+			name: "non-numeric maxReplicas",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "lots"},
+			}),
+			wantErr: "must be a positive integer",
+		},
+		{
+			name: "maxReplicas overflowing int32 is rejected, not truncated",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				// int32-truncates to 3; must fail validation instead of
+				// emitting a plausible-looking wrong HPA.
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "4294967299"},
+			}),
+			wantErr: "must be a positive integer",
+		},
+		{
+			name: "minReplicas above maxReplicas",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{
+					kubepose.HpaMinReplicasAnnotationKey: "5",
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+				},
+			}),
+			wantErr: "must not exceed",
+		},
+		{
+			name: "deploy.replicas above maxReplicas as implicit floor",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Deploy:      &types.DeployConfig{Replicas: intPtr(8)},
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+			}),
+			wantErr: "must not exceed",
+		},
+		{
+			name: "zero cpu target",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+					kubepose.HpaCpuAnnotationKey:         "0",
+				},
+			}),
+			wantErr: "positive integer percentage",
+		},
+		{
+			name: "combined with cronjob schedule",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey:  "3",
+					kubepose.CronJobScheduleAnnotationKey: "0 * * * *",
+				},
+			}),
+			wantErr: "cannot be combined with",
+		},
+		{
+			name: "combined with global mode",
+			service: types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Deploy: &types.DeployConfig{
+					Mode:      "global",
+					Resources: types.Resources{Reservations: &types.Resource{NanoCPUs: 1}},
+				},
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+			},
+			wantErr: "deploy.mode: global",
+		},
+		{
+			name: "missing cpu reservation",
+			service: types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+			},
+			wantErr: "requires deploy.resources.reservations.cpus",
+		},
+		{
+			name: "standalone-pod service (restart: no) is rejected, not a silent no-op",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Restart:     "no",
+				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+			}),
+			wantErr: "requires restart: always",
+		},
+		{
+			name: "init container service is rejected, not a silent no-op",
+			service: withCpuReservation(types.ServiceConfig{
+				Name: "web", Image: "nginx",
+				Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+					kubepose.ContainerTypeAnnotationKey:  "init",
+				},
+			}),
+			wantErr: "has no effect on an init container",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := kubepose.Transformer{}.Convert(projectWith(tc.service))
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tc.wantErr, err)
+			}
+		})
+	}
+}
+
+func intPtr(i int) *int { return &i }
