@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.hpa.cpu: "70"
+    kubepose.hpa.maxReplicas: "6"
+    kubepose.hpa.minReplicas: "2"
+  name: api
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.hpa.cpu: "70"
+        kubepose.hpa.maxReplicas: "6"
+        kubepose.hpa.minReplicas: "2"
+      labels:
+        app.kubernetes.io/name: api
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: api
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256Mi
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kubepose.hpa.maxReplicas: "10"
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kubepose.hpa.maxReplicas: "10"
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: web
+        resources:
+          requests:
+            cpu: "2"
+            memory: 1Gi
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        name: worker
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations:
+    kubepose.hpa.cpu: "70"
+    kubepose.hpa.maxReplicas: "6"
+    kubepose.hpa.minReplicas: "2"
+  name: api
+spec:
+  maxReplicas: 6
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 70
+        type: Utilization
+    type: Resource
+  minReplicas: 2
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+status:
+  currentMetrics: null
+  desiredReplicas: 0
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  annotations:
+    kubepose.hpa.maxReplicas: "10"
+  name: web
+spec:
+  maxReplicas: 10
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 80
+        type: Utilization
+    type: Resource
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web
+status:
+  currentMetrics: null
+  desiredReplicas: 0

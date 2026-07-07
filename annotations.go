@@ -17,6 +17,20 @@ const (
 	// using the value as the cron schedule (e.g. "0 * * * *").
 	CronJobScheduleAnnotationKey = "kubepose.cronjob.schedule"
 
+	// HpaMaxReplicasAnnotationKey, when set on a service, emits an
+	// autoscaling/v2 HorizontalPodAutoscaler targeting the service's
+	// Deployment, scaling on average CPU utilization. The Deployment is
+	// emitted without spec.replicas so re-applies don't reset the HPA's
+	// chosen scale. Requires deploy.resources.reservations.cpus, since
+	// utilization is a percentage of the CPU request.
+	HpaMaxReplicasAnnotationKey = "kubepose.hpa.maxReplicas"
+	// HpaMinReplicasAnnotationKey sets the HPA's floor. Defaults to
+	// deploy.replicas, else 1.
+	HpaMinReplicasAnnotationKey = "kubepose.hpa.minReplicas"
+	// HpaCpuUtilizationAnnotationKey sets the HPA's target average CPU
+	// utilization percentage. Defaults to 80.
+	HpaCpuUtilizationAnnotationKey = "kubepose.hpa.cpu"
+
 	ConfigHmacKeyAnnotationKey     = "kubepose.config.hmacKey"
 	SecretHmacKeyAnnotationKey     = "kubepose.secret.hmacKey"
 	VolumeHmacKeyAnnotationKey     = "kubepose.volume.hmacKey"

@@ -118,6 +118,15 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 			} else {
 				deploy := t.createDeployment(resources, service)
 				podSpec = &deploy.Spec.Template.Spec
+				if hasHorizontalPodAutoscaler(service) {
+					// The HPA owns the replica count; a pinned spec.replicas
+					// would reset its chosen scale on every apply. Cleared
+					// here rather than in createDeployment so it also covers
+					// a grouped service whose Deployment was created first
+					// by another member.
+					deploy.Spec.Replicas = nil
+					t.createHorizontalPodAutoscaler(resources, service)
+				}
 			}
 			t.addContainersToSpec(podSpec, appServices, initServices)
 			for _, svc := range append(appServices, initServices...) {
@@ -171,7 +180,7 @@ func validateService(service types.ServiceConfig) error {
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
 		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
 	}
-	return nil
+	return validateHpaAnnotations(service)
 }
 
 // getServiceName returns the kubernetes resource name for a compose service:
