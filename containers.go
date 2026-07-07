@@ -14,11 +14,11 @@ import (
 func (t Transformer) createContainer(service types.ServiceConfig) corev1.Container {
 	livenessProbe, readinessProbe, startupProbe := getProbes(service)
 
-	// support for init containers with always restart policy
-	// (also known as side car containers)
+	// An init-typed service becomes a native sidecar: an init container with
+	// restartPolicy Always. validateService guarantees restart: always here.
 	// https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
 	var containerRestartPolicy *corev1.ContainerRestartPolicy
-	if service.Annotations[ContainerTypeAnnotationKey] == "init" && getRestartPolicy(service) == corev1.RestartPolicyAlways {
+	if service.Annotations[ContainerTypeAnnotationKey] == "init" {
 		containerRestartPolicy = ptr.To(corev1.ContainerRestartPolicyAlways)
 	}
 	return corev1.Container{

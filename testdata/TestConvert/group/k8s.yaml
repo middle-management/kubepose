@@ -1,86 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
+  annotations:
     kubepose.container.type: app
     kubepose.service.group: myapp
-  name: api
+  name: myapp
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: api
+      app.kubernetes.io/name: myapp
   strategy: {}
   template:
     metadata:
-      labels:
-        app.kubernetes.io/name: api
+      annotations:
         kubepose.container.type: app
         kubepose.service.group: myapp
+      labels:
+        app.kubernetes.io/name: myapp
     spec:
       containers:
       - image: nginx
         imagePullPolicy: IfNotPresent
         name: api
         resources: {}
-      restartPolicy: Always
-status: {}
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    kubepose.container.type: init
-    kubepose.service.group: myapp
-  name: logshipper
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: logshipper
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: logshipper
-        kubepose.container.type: init
-        kubepose.service.group: myapp
-    spec:
-      containers:
-      - image: fluentd
-        imagePullPolicy: IfNotPresent
-        name: logshipper
-        resources: {}
-        volumeMounts:
-        - mountPath: /run/secrets/secret
-          name: secret
-          readOnly: true
-          subPath: secret
-      restartPolicy: Always
-      volumes:
-      - name: secret
-        secret:
-          secretName: secret-79f7063e
-status: {}
-
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    kubepose.service.group: myapp
-  name: web
-spec:
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: web
-  strategy: {}
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: web
-        kubepose.service.group: myapp
-    spec:
-      containers:
       - image: nginx
         imagePullPolicy: IfNotPresent
         name: web
@@ -90,31 +32,22 @@ spec:
           name: secret
           readOnly: true
           subPath: secret
+      initContainers:
+      - image: fluentd
+        imagePullPolicy: IfNotPresent
+        name: logshipper
+        resources: {}
+        restartPolicy: Always
+        volumeMounts:
+        - mountPath: /run/secrets/secret
+          name: secret
+          readOnly: true
+          subPath: secret
       restartPolicy: Always
       volumes:
       - name: secret
         secret:
           secretName: secret-79f7063e
-status: {}
-
----
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    kubepose.container.type: init
-    kubepose.service.group: myapp
-  name: db-setup
-spec:
-  containers:
-  - args:
-    - echo
-    - migrate
-    image: alpine
-    imagePullPolicy: IfNotPresent
-    name: db-setup
-    resources: {}
-  restartPolicy: OnFailure
 status: {}
 
 ---

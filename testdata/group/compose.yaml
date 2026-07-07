@@ -1,27 +1,21 @@
 services:
-  # Regular init container
-  db-setup:
-    image: alpine
-    command: echo migrate
-    restart: "on-failure"
-    labels:
-      kubepose.service.group: "myapp"
-      kubepose.container.type: "init"
-
-  # Sidecar container (init container with Always restart policy)
+  # Sidecar container: becomes an initContainers entry with container-level
+  # restartPolicy Always (a Kubernetes native sidecar)
   logshipper:
     image: fluentd
-    restart: always # This makes it a sidecar
-    labels:
+    restart: always # required for kubepose.container.type: init
+    annotations:
       kubepose.service.group: "myapp"
       kubepose.container.type: "init"
     secrets:
       - secret
 
-  # Main app container
+  # Main app container; run-once init work is expressed as pre_start hooks
+  # (covered in testdata/pre-start, omitted here so old compose versions can
+  # still dry-run this file)
   web:
     image: nginx
-    labels:
+    annotations:
       kubepose.service.group: "myapp"
       # container.type defaults to "app"
     secrets:
@@ -30,7 +24,7 @@ services:
   # Another app container
   api:
     image: nginx
-    labels:
+    annotations:
       kubepose.service.group: "myapp"
       kubepose.container.type: "app" # optional, this is default
 

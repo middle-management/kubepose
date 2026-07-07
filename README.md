@@ -90,8 +90,8 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Deployments | ✅ | Default workload type |
 | DaemonSets | ✅ | Enable with `deploy.mode: global` |
 | Multi-Container Pods | ✅ | Group via `kubepose.service.group` |
-| Init Containers | ✅ | Mark with `kubepose.container.type: init` |
-| Sidecar Containers | ✅ | Init containers with `restart: always` |
+| Init Containers | ✅ | Use `pre_start` lifecycle hooks |
+| Sidecar Containers | ✅ | Mark with `kubepose.container.type: init` (requires `restart: always`) |
 | StatefulSets | 🚧 | Planned |
 | CronJobs | ✅ | Enable with `kubepose.cronjob.schedule: "<cron>"` |
 | HorizontalPodAutoscalers | ✅ | Enable with `kubepose.hpa.maxReplicas: "<n>"` |
@@ -303,6 +303,29 @@ Hook containers inherit the service's volume mounts, matching compose's behavior
 Differences from compose semantics:
 - `per_replica` has no Kubernetes equivalent: init containers always run once per pod, so every replica runs its own hooks.
 - Init containers re-run whenever a pod is (re)created, whereas compose skips hooks that already succeeded for an unchanged service.
+
+### Sidecar Containers
+
+A service annotated with `kubepose.container.type: init` becomes a Kubernetes [native sidecar](https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/): an `initContainers` entry with container-level `restartPolicy: Always`. The kubelet starts it before the app containers, keeps it running for the pod's lifetime, and terminates it after the app containers stop.
+
+```yaml
+services:
+  web:
+    image: nginx
+    annotations:
+      kubepose.service.group: myapp
+
+  logshipper:
+    image: fluentd
+    restart: always # required
+    annotations:
+      kubepose.service.group: myapp
+      kubepose.container.type: init
+```
+
+The sidecar must share a `kubepose.service.group` with at least one app service, and must use `restart: always` (or leave `restart` unset, which maps to always). Any other restart mode is rejected: Kubernetes only allows `restartPolicy: Always` on init containers, so a run-once service cannot be expressed this way — use `pre_start` hooks instead.
+
+Because the sidecar is a full compose service, it supports everything a service does: its own secrets, configs, volumes, resource limits, and healthchecks. Locally, `docker compose up` runs it as a regular long-running container alongside the group, which matches the sidecar behavior on Kubernetes.
 
 ## Contributing
 
