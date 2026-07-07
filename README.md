@@ -109,6 +109,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Health Checks | ✅ | Supports test commands and HTTP checks |
 | User Settings | ✅ | Numeric user/group IDs only |
 | Stop Grace Period | ✅ | `stop_grace_period` maps to `terminationGracePeriodSeconds` (sub-second values round up) |
+| Pre-start Hooks | ✅ | `pre_start` maps to init containers |
 
 ### Networking
 
@@ -226,6 +227,46 @@ services:
 Note that some aspects of Docker Compose's update configuration don't have direct equivalents in Kubernetes:
 - `failure_action` is handled differently through Kubernetes' native deployment controller
 - `max_failure_ratio` has no direct equivalent
+
+### Pre-start Hooks
+
+Compose `pre_start` lifecycle hooks are converted to Kubernetes init containers, which match the compose contract: they run in declared order, each must exit successfully before the next starts, and the service container only starts once all of them have finished.
+
+```yaml
+services:
+  web:
+    image: nginx
+    volumes:
+      - data:/var/lib/data
+    pre_start:
+      # Uses the service's image and environment by default
+      - command: ./migrate.sh up
+      # Or bring your own image, user and working directory
+      - image: busybox
+        command: chown -R 1000:1000 /var/lib/data
+        user: "0:0"
+        working_dir: /var/lib/data
+
+volumes:
+  data:
+```
+
+Hook fields map as follows:
+
+| Compose Field | Kubernetes Field |
+|---------------|------------------|
+| `command` | init container `command` |
+| `image` | init container `image` (defaults to the service's image) |
+| `user` | `securityContext.runAsUser`/`runAsGroup` (numeric IDs only) |
+| `privileged` | `securityContext.privileged` |
+| `working_dir` | `workingDir` |
+| `environment` | `env` (service environment with hook overrides applied) |
+
+Hook containers inherit the service's volume mounts, matching compose's behavior of sharing the service's mounts.
+
+Differences from compose semantics:
+- `per_replica` has no Kubernetes equivalent: init containers always run once per pod, so every replica runs its own hooks.
+- Init containers re-run whenever a pod is (re)created, whereas compose skips hooks that already succeeded for an unchanged service.
 
 ## Contributing
 

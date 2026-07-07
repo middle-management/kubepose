@@ -1,0 +1,28 @@
+services:
+  web:
+    image: nginx
+    environment:
+      DATA_DIR: /var/lib/data
+    volumes:
+      - data:/var/lib/data
+    pre_start:
+      # Runs with the service image and environment by default
+      - command: ["/docker-entrypoint.d/migrate.sh", "up"]
+        environment:
+          MIGRATION_STEP: "1"
+      # Runs with its own image, user and working directory
+      - image: busybox
+        command: chown -R 1000:1000 /var/lib/data
+        user: "0:0"
+        working_dir: /var/lib/data
+
+  # Standalone pod (non-Always restart policy) with a pre_start hook
+  migrate:
+    image: alpine
+    command: echo done
+    restart: "no"
+    pre_start:
+      - command: echo preparing
+
+volumes:
+  data:

@@ -58,10 +58,12 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		// Handle standalone pods (non-Always restart policy)
 		if _, isCronJob := service.Annotations[CronJobScheduleAnnotationKey]; !isCronJob && getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
 			pod := t.createPod(service)
+			pod.Spec.InitContainers = t.createPreStartContainers(service)
 			pod.Spec.Containers = []corev1.Container{t.createContainer(service)}
 			t.updatePodSpecWithSecrets(&pod.Spec, service, secretMappings)
 			t.updatePodSpecWithConfigs(&pod.Spec, service, configMappings)
 			t.updatePodSpecWithVolumes(&pod.Spec, service, volumeMappings, resources)
+			inheritPreStartVolumeMounts(&pod.Spec, service)
 			resources.Pods = append(resources.Pods, pod)
 			continue
 		}
@@ -122,6 +124,9 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 				t.updatePodSpecWithSecrets(podSpec, svc, secretMappings)
 				t.updatePodSpecWithConfigs(podSpec, svc, configMappings)
 				t.updatePodSpecWithVolumes(podSpec, svc, volumeMappings, resources)
+			}
+			for _, svc := range append(appServices, initServices...) {
+				inheritPreStartVolumeMounts(podSpec, svc)
 			}
 			removeDuplicateVolumeMounts(podSpec.Containers)
 			removeDuplicateVolumeMounts(podSpec.InitContainers)

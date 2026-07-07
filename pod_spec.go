@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func (t Transformer) createPodSpec(service types.ServiceConfig) corev1.PodSpec {
@@ -55,28 +56,37 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 	return corev1.RestartPolicyAlways
 }
 
-func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext {
-	var runAsUser, runAsGroup, fsGroup *int64
-	var supplementalGroups []int64
+// parseUserGroupIDs parses a compose "user" value ("uid" or "uid:gid") into
+// numeric IDs, warning about named users/groups which Kubernetes cannot map.
+func parseUserGroupIDs(user string) (runAsUser, runAsGroup *int64) {
+	if user == "" {
+		return nil, nil
+	}
 
-	if service.User != "" {
-		parts := strings.Split(service.User, ":")
+	parts := strings.Split(user, ":")
 
-		if uid, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
-			runAsUser = &uid
+	if uid, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
+		runAsUser = &uid
+	} else {
+		fmt.Printf("Warning: skipping named user %q - only numeric IDs are supported\n", parts[0])
+	}
+
+	if len(parts) > 1 {
+		if gid, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
+			runAsGroup = &gid
 		} else {
-			fmt.Printf("Warning: skipping named user %q - only numeric IDs are supported\n", parts[0])
-		}
-
-		if len(parts) > 1 {
-			if gid, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
-				runAsGroup = &gid
-				fsGroup = &gid
-			} else {
-				fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", parts[1])
-			}
+			fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", parts[1])
 		}
 	}
+
+	return runAsUser, runAsGroup
+}
+
+func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext {
+	var supplementalGroups []int64
+
+	runAsUser, runAsGroup := parseUserGroupIDs(service.User)
+	fsGroup := runAsGroup
 
 	for _, g := range service.GroupAdd {
 		if gid, err := strconv.ParseInt(g, 10, 64); err == nil {
@@ -96,6 +106,22 @@ func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext 
 		FSGroup:            fsGroup,
 		SupplementalGroups: supplementalGroups,
 	}
+}
+
+func getHookSecurityContext(hook types.ServiceHook) *corev1.SecurityContext {
+	runAsUser, runAsGroup := parseUserGroupIDs(hook.User)
+	if runAsUser == nil && runAsGroup == nil && !hook.Privileged {
+		return nil
+	}
+
+	securityContext := &corev1.SecurityContext{
+		RunAsUser:  runAsUser,
+		RunAsGroup: runAsGroup,
+	}
+	if hook.Privileged {
+		securityContext.Privileged = ptr.To(true)
+	}
+	return securityContext
 }
 
 func getTopologySpreadConstraints(service types.ServiceConfig) []corev1.TopologySpreadConstraint {
