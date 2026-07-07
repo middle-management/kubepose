@@ -152,7 +152,7 @@ Some Docker Compose features are intentionally not supported as they either:
 Key unsupported features include:
 - 🛠️ Build configuration (use `docker buildkit bake`)
 - 🔗 Container linking (use Kubernetes Services)
-- 🏗️ Dependencies (use Kubernetes primitives)
+- 🏗️ Startup dependencies — `depends_on` is ignored, see [Startup Dependencies](#startup-dependencies-depends_on)
 - 🔐 Privileged mode and capabilities
 - 📝 Logging configuration
 
@@ -326,6 +326,19 @@ services:
 The sidecar must share a `kubepose.service.group` with at least one app service, and must declare `restart: always` explicitly. Leaving `restart` unset is rejected: compose's default is no restart, so a locally run-once service would silently become a restart-forever sidecar on Kubernetes. Other restart modes are rejected too — Kubernetes only allows `restartPolicy: Always` on init containers, so a run-once service cannot be expressed this way; use `pre_start` hooks instead.
 
 Because the sidecar is a full compose service, it supports everything a service does: its own secrets, configs, volumes, resource limits, and healthchecks. Locally, `docker compose up` runs it as a regular long-running container alongside the group, which matches the sidecar behavior on Kubernetes.
+
+### Startup Dependencies (depends_on)
+
+`depends_on` is ignored during conversion. Kubernetes has no cross-pod startup ordering: all workloads are created at once and converge independently, so a local `docker compose up` starts services in dependency order while the deployed environment starts everything simultaneously.
+
+Keep `depends_on` in your compose file for a pleasant local experience — it does no harm deployed. For the cluster, the equivalents are:
+
+- `condition: service_started` / `service_healthy` — make the dependent service tolerate an unavailable dependency instead: crash or retry until it connects (Kubernetes restarts it with backoff), and declare a `healthcheck` so the converted readiness probe keeps the service out of rotation until its dependency is reachable.
+- `condition: service_completed_successfully` — for run-once prerequisites like migrations, use a [`pre_start` hook](#pre-start-hooks) on the dependent service; it runs to completion before the service starts, both locally and as an init container in the pod.
+
+### Container Groups and DNS
+
+Grouping services into one pod with `kubepose.service.group` changes how they address each other compared to local compose. Locally every service has its own DNS name on the compose network; deployed, the group shares a single Kubernetes Service named after the *group*, and grouped containers reach each other on `localhost` since they share the pod's network namespace. When grouped services talk to each other, put the dependency's host in an environment variable (e.g. `DB_HOST=db` locally, `DB_HOST=localhost` deployed via a profile or override file) rather than hardcoding a service name.
 
 ## Contributing
 
