@@ -68,3 +68,39 @@ spec:
       restartPolicy: Always
       terminationGracePeriodSeconds: 300
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fast-worker
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: fast-worker
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immediate
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: immediate
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: worker
+status:
+  loadBalancer: {}

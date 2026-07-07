@@ -104,11 +104,8 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
-	t.Run("invalid published port is silently ignored", func(t *testing.T) {
+	t.Run("invalid published port returns error", func(t *testing.T) {
 		t.Parallel()
-		// Documents existing behavior at convert.go convertServicePorts.
-		// strconv errors are swallowed; published falls back to 0.
-		// TODO: surface a real error in a future PR.
 		project := projectWith(types.ServiceConfig{
 			Name:  "web",
 			Image: "nginx",
@@ -116,16 +113,22 @@ func TestConvertNegative(t *testing.T) {
 				{Target: 80, Published: "not-a-number"},
 			},
 		})
-		resources, err := kubepose.Transformer{}.Convert(project)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "invalid published port") {
+			t.Fatalf("expected invalid published port error, got: %v", err)
 		}
-		if len(resources.Services) != 1 {
-			t.Fatalf("expected 1 service, got %d", len(resources.Services))
-		}
-		ports := resources.Services[0].Spec.Ports
-		if len(ports) != 1 || ports[0].Port != 0 {
-			t.Fatalf("expected silent fallback to port 0, got %+v", ports)
+	})
+
+	t.Run("invalid expose entry returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:   "web",
+			Image:  "nginx",
+			Expose: []string{"not-a-port"},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "invalid expose entry") {
+			t.Fatalf("expected invalid expose entry error, got: %v", err)
 		}
 	})
 
@@ -177,22 +180,49 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
-	t.Run("named user is skipped with no security context", func(t *testing.T) {
+	t.Run("named user returns error", func(t *testing.T) {
 		t.Parallel()
-		// Documents that named users like "ubuntu" are dropped (only numeric
-		// IDs are supported); a warning is printed but conversion succeeds.
+		// Named users resolve against the image's /etc/passwd locally but
+		// have no Kubernetes securityContext equivalent, so the deployed
+		// container would silently run as a different user.
+		for _, user := range []string{"ubuntu", "1000:staff"} {
+			project := projectWith(types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx",
+				User:  user,
+			})
+			_, err := kubepose.Transformer{}.Convert(project)
+			if err == nil || !strings.Contains(err.Error(), "only numeric user/group IDs") {
+				t.Fatalf("user %q: expected numeric-IDs error, got: %v", user, err)
+			}
+		}
+	})
+
+	t.Run("named group_add returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:     "web",
+			Image:    "nginx",
+			GroupAdd: []string{"docker"},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "only numeric group IDs") {
+			t.Fatalf("expected numeric group IDs error, got: %v", err)
+		}
+	})
+
+	t.Run("named pre_start hook user returns error", func(t *testing.T) {
+		t.Parallel()
 		project := projectWith(types.ServiceConfig{
 			Name:  "web",
 			Image: "nginx",
-			User:  "ubuntu",
+			PreStart: []types.ServiceHook{
+				{Command: []string{"echo", "hi"}, User: "root"},
+			},
 		})
-		resources, err := kubepose.Transformer{}.Convert(project)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		spec := resources.Deployments[0].Spec.Template.Spec
-		if spec.SecurityContext != nil {
-			t.Fatalf("expected no SecurityContext for non-numeric user, got %+v", spec.SecurityContext)
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "only numeric user/group IDs") {
+			t.Fatalf("expected numeric-IDs error for hook user, got: %v", err)
 		}
 	})
 
@@ -216,11 +246,10 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
-	t.Run("CMD with empty command list still produces a probe", func(t *testing.T) {
+	t.Run("CMD with empty command list returns error", func(t *testing.T) {
 		t.Parallel()
-		// Documents current behavior: ["CMD"] with no following args
-		// yields an exec probe with an empty Command slice (kubectl would
-		// reject this on apply). A future PR could reject this upfront.
+		// ["CMD"] with no following args would yield an exec probe with an
+		// empty Command slice, which Kubernetes rejects on apply.
 		project := projectWith(types.ServiceConfig{
 			Name:  "web",
 			Image: "nginx",
@@ -228,16 +257,73 @@ func TestConvertNegative(t *testing.T) {
 				Test: []string{"CMD"},
 			},
 		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "requires a command") {
+			t.Fatalf("expected empty-command healthcheck error, got: %v", err)
+		}
+	})
+
+	t.Run("group with only init services returns error", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name: "proxy", Image: "envoy",
+			Restart: "always",
+			Annotations: map[string]string{
+				kubepose.ServiceGroupAnnotationKey:  "myapp",
+				kubepose.ContainerTypeAnnotationKey: "init",
+			},
+		})
+		_, err := kubepose.Transformer{}.Convert(project)
+		if err == nil || !strings.Contains(err.Error(), "only") || !strings.Contains(err.Error(), "init") {
+			t.Fatalf("expected init-only group error, got: %v", err)
+		}
+	})
+
+	t.Run("portless service gets a headless Service for DNS parity", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:  "db",
+			Image: "postgres",
+		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		c := resources.Deployments[0].Spec.Template.Spec.Containers[0]
-		if c.LivenessProbe == nil || c.LivenessProbe.Exec == nil {
-			t.Fatal("expected an exec liveness probe")
+		if len(resources.Services) != 1 {
+			t.Fatalf("expected 1 service, got %d", len(resources.Services))
 		}
-		if len(c.LivenessProbe.Exec.Command) != 0 {
-			t.Fatalf("expected empty Command, got %v", c.LivenessProbe.Exec.Command)
+		svc := resources.Services[0]
+		if svc.Spec.ClusterIP != corev1.ClusterIPNone {
+			t.Fatalf("expected headless service (ClusterIP None), got %q", svc.Spec.ClusterIP)
+		}
+		if len(svc.Spec.Ports) != 0 {
+			t.Fatalf("expected no ports, got %+v", svc.Spec.Ports)
+		}
+	})
+
+	t.Run("expose entries become Service ports", func(t *testing.T) {
+		t.Parallel()
+		project := projectWith(types.ServiceConfig{
+			Name:   "db",
+			Image:  "postgres",
+			Expose: []string{"5432", "9000/udp"},
+		})
+		resources, err := kubepose.Transformer{}.Convert(project)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		svc := resources.Services[0]
+		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
+			t.Fatal("expected a regular ClusterIP service when expose ports exist")
+		}
+		if len(svc.Spec.Ports) != 2 {
+			t.Fatalf("expected 2 ports, got %+v", svc.Spec.Ports)
+		}
+		if svc.Spec.Ports[0].Port != 5432 || svc.Spec.Ports[0].Protocol != corev1.ProtocolTCP {
+			t.Fatalf("expected 5432/TCP first, got %+v", svc.Spec.Ports[0])
+		}
+		if svc.Spec.Ports[1].Port != 9000 || svc.Spec.Ports[1].Protocol != corev1.ProtocolUDP {
+			t.Fatalf("expected 9000/UDP second, got %+v", svc.Spec.Ports[1])
 		}
 	})
 

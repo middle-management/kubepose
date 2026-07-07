@@ -136,3 +136,45 @@ spec:
 status:
   currentMetrics: null
   desiredReplicas: 0
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.hpa.cpu: "70"
+    kubepose.hpa.maxReplicas: "6"
+    kubepose.hpa.minReplicas: "2"
+  name: api
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: api
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.hpa.maxReplicas: "10"
+  name: web
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: web
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: worker
+status:
+  loadBalancer: {}

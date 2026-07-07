@@ -126,3 +126,58 @@ spec:
         resources: {}
       restartPolicy: Always
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    gcr.io/google-containers/: BAR
+  name: bar
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: bar
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    foo1: gcr.io/google-containers/
+    foo2: gcr.io/google-containers/
+    foo3: default
+    foo4: gcr.io/google-containers/
+  name: foo
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: foo
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rep
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: rep
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: web
+status:
+  loadBalancer: {}

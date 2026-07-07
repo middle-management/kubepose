@@ -21,9 +21,12 @@ services:
     secrets:
       - secret
 
-  # Another app container
+  # Another app container; expose gives the group Service a port without
+  # publishing it on the host
   api:
     image: nginx
+    expose:
+      - "8080"
     annotations:
       kubepose.service.group: "myapp"
       kubepose.container.type: "app" # optional, this is default

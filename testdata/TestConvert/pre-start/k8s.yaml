@@ -102,3 +102,15 @@ spec:
     resources: {}
   restartPolicy: Never
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: web
+status:
+  loadBalancer: {}

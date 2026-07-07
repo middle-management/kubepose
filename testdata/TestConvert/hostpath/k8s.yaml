@@ -37,3 +37,15 @@ spec:
           path: /host/tmp
         name: logs-default
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: test
+status:
+  loadBalancer: {}

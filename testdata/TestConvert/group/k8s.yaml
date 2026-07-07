@@ -61,3 +61,22 @@ metadata:
     kubepose.secret.hmacKey: kubepose.secret.v1
   name: secret-79f7063e
 type: Opaque
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubepose.container.type: app
+    kubepose.service.group: myapp
+  name: myapp
+spec:
+  ports:
+  - name: "8080"
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    app.kubernetes.io/name: myapp
+status:
+  loadBalancer: {}

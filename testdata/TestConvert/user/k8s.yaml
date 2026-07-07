@@ -24,4 +24,18 @@ spec:
         fsGroup: 1000
         runAsGroup: 1000
         runAsUser: 1000
+        supplementalGroups:
+        - 999
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: app
+status:
+  loadBalancer: {}
