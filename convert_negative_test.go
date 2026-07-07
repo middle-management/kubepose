@@ -241,9 +241,11 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
-	t.Run("init container type without restart always returns error", func(t *testing.T) {
+	t.Run("init container type without explicit restart always returns error", func(t *testing.T) {
 		t.Parallel()
-		for _, restart := range []string{"no", "on-failure", "unless-stopped"} {
+		// Unset restart is rejected too: compose's default is no restart
+		// (run-once), so it must not silently become a sidecar.
+		for _, restart := range []string{"", "no", "on-failure", "unless-stopped"} {
 			project := projectWith(types.ServiceConfig{
 				Name:    "setup",
 				Image:   "alpine",
@@ -261,8 +263,6 @@ func TestConvertNegative(t *testing.T) {
 
 	t.Run("init container type becomes a native sidecar", func(t *testing.T) {
 		t.Parallel()
-		// Unspecified restart maps to Always, so a bare init annotation is a
-		// valid sidecar without spelling out restart: always.
 		group := map[string]string{kubepose.ServiceGroupAnnotationKey: "myapp"}
 		project := &types.Project{
 			Services: types.Services{
@@ -272,6 +272,7 @@ func TestConvertNegative(t *testing.T) {
 				},
 				"proxy": types.ServiceConfig{
 					Name: "proxy", Image: "envoy",
+					Restart: "always",
 					Annotations: map[string]string{
 						kubepose.ServiceGroupAnnotationKey:  "myapp",
 						kubepose.ContainerTypeAnnotationKey: "init",
@@ -443,6 +444,7 @@ func TestConvertHpaValidation(t *testing.T) {
 			name: "init container service is rejected, not a silent no-op",
 			service: withCpuReservation(types.ServiceConfig{
 				Name: "web", Image: "nginx",
+				Restart: "always", // valid sidecar, so the HPA check is what fires
 				Annotations: map[string]string{
 					kubepose.HpaMaxReplicasAnnotationKey: "3",
 					kubepose.ContainerTypeAnnotationKey:  "init",

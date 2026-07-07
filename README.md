@@ -323,7 +323,7 @@ services:
       kubepose.container.type: init
 ```
 
-The sidecar must share a `kubepose.service.group` with at least one app service, and must use `restart: always` (or leave `restart` unset, which maps to always). Any other restart mode is rejected: Kubernetes only allows `restartPolicy: Always` on init containers, so a run-once service cannot be expressed this way — use `pre_start` hooks instead.
+The sidecar must share a `kubepose.service.group` with at least one app service, and must declare `restart: always` explicitly. Leaving `restart` unset is rejected: compose's default is no restart, so a locally run-once service would silently become a restart-forever sidecar on Kubernetes. Other restart modes are rejected too — Kubernetes only allows `restartPolicy: Always` on init containers, so a run-once service cannot be expressed this way; use `pre_start` hooks instead.
 
 Because the sidecar is a full compose service, it supports everything a service does: its own secrets, configs, volumes, resource limits, and healthchecks. Locally, `docker compose up` runs it as a regular long-running container alongside the group, which matches the sidecar behavior on Kubernetes.
 

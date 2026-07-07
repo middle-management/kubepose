@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	corev1 "k8s.io/api/core/v1"
@@ -185,8 +186,14 @@ func validateService(service types.ServiceConfig) error {
 	// Kubernetes forbids any other restartPolicy on init containers, so a
 	// run-once variant of this annotation could not carry the restart value
 	// anyway — pre_start hooks are the supported spelling for run-once work.
-	if service.Annotations[ContainerTypeAnnotationKey] == "init" && getRestartPolicy(service) != corev1.RestartPolicyAlways {
-		return fmt.Errorf("%s: init requires restart: always (it becomes a sidecar container); use pre_start hooks for run-once init containers", ContainerTypeAnnotationKey)
+	// restart: always must be explicit: compose's default is no restart
+	// (run-once), so silently promoting an unset value to a restart-forever
+	// sidecar would diverge from what compose runs locally. The extra
+	// getRestartPolicy check rejects a conflicting deploy.restart_policy.
+	if service.Annotations[ContainerTypeAnnotationKey] == "init" {
+		if !strings.EqualFold(service.Restart, "always") || getRestartPolicy(service) != corev1.RestartPolicyAlways {
+			return fmt.Errorf("%s: init requires explicit restart: always (it becomes a sidecar container); use pre_start hooks for run-once init containers", ContainerTypeAnnotationKey)
+		}
 	}
 	// Reject HPA annotations on the two service shapes that never reach the
 	// Deployment branch in Convert; they would otherwise be silent no-ops.
