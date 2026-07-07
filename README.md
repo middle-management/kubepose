@@ -199,6 +199,14 @@ matters: it is the default `minReplicas`. The annotations are rejected on
 CronJob (`kubepose.cronjob.schedule`) and DaemonSet (`deploy.mode: global`)
 services, and require a CPU reservation.
 
+The generated HPA needs [metrics-server](https://github.com/kubernetes-sigs/metrics-server)
+running in the cluster (preinstalled or one click on most managed clusters).
+The CPU reservation must be explicit: a service with only `deploy.resources.limits`
+is rejected, even though Kubernetes would default the request from the limit.
+Memory-based targets are intentionally not supported — most runtimes do not
+release memory under reduced load, so memory utilization never drops and the
+HPA would scale up but never back down.
+
 ### Update Strategies
 
 kubepose supports Docker Compose's `update_config` for controlling how services are updated:

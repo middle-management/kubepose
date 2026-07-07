@@ -44,11 +44,14 @@ func (t Transformer) createHorizontalPodAutoscaler(resources *Resources, service
 	if value, ok := service.Annotations[HpaMinReplicasAnnotationKey]; ok {
 		minReplicas, _ = strconv.Atoi(value)
 	} else if service.Deploy != nil && service.Deploy.Replicas != nil {
+		// For grouped services this reads deploy.replicas from the annotated
+		// member only — consistent with group-merge semantics elsewhere,
+		// where the annotated service's Deployment-level fields win.
 		minReplicas = *service.Deploy.Replicas
 	}
 
 	cpuUtilization := hpaDefaultCpuUtilization
-	if value, ok := service.Annotations[HpaCpuUtilizationAnnotationKey]; ok {
+	if value, ok := service.Annotations[HpaCpuAnnotationKey]; ok {
 		cpuUtilization, _ = strconv.Atoi(value)
 	}
 
@@ -93,29 +96,33 @@ func (t Transformer) createHorizontalPodAutoscaler(resources *Resources, service
 func validateHpaAnnotations(service types.ServiceConfig) error {
 	maxValue, hasMax := service.Annotations[HpaMaxReplicasAnnotationKey]
 	minValue, hasMin := service.Annotations[HpaMinReplicasAnnotationKey]
-	cpuValue, hasCpu := service.Annotations[HpaCpuUtilizationAnnotationKey]
+	cpuValue, hasCpu := service.Annotations[HpaCpuAnnotationKey]
 
 	if !hasMax {
-		if hasMin || hasCpu {
-			return fmt.Errorf("%s and %s have no effect without %s",
-				HpaMinReplicasAnnotationKey, HpaCpuUtilizationAnnotationKey, HpaMaxReplicasAnnotationKey)
+		if hasMin {
+			return fmt.Errorf("%s has no effect without %s", HpaMinReplicasAnnotationKey, HpaMaxReplicasAnnotationKey)
+		}
+		if hasCpu {
+			return fmt.Errorf("%s has no effect without %s", HpaCpuAnnotationKey, HpaMaxReplicasAnnotationKey)
 		}
 		return nil
 	}
 
-	maxReplicas, err := strconv.Atoi(maxValue)
+	// ParseInt with bitSize 32 so out-of-range values fail here instead of
+	// silently truncating in createHorizontalPodAutoscaler's int32 casts.
+	maxReplicas, err := strconv.ParseInt(maxValue, 10, 32)
 	if err != nil || maxReplicas < 1 {
 		return fmt.Errorf("%s must be a positive integer, got %q", HpaMaxReplicasAnnotationKey, maxValue)
 	}
 
-	minReplicas := 1
+	minReplicas := int64(1)
 	if hasMin {
-		minReplicas, err = strconv.Atoi(minValue)
+		minReplicas, err = strconv.ParseInt(minValue, 10, 32)
 		if err != nil || minReplicas < 1 {
 			return fmt.Errorf("%s must be a positive integer, got %q", HpaMinReplicasAnnotationKey, minValue)
 		}
 	} else if service.Deploy != nil && service.Deploy.Replicas != nil {
-		minReplicas = *service.Deploy.Replicas
+		minReplicas = int64(*service.Deploy.Replicas)
 	}
 	if minReplicas > maxReplicas {
 		return fmt.Errorf("%s (%d) must not exceed %s (%d)",
@@ -123,9 +130,9 @@ func validateHpaAnnotations(service types.ServiceConfig) error {
 	}
 
 	if hasCpu {
-		cpuUtilization, err := strconv.Atoi(cpuValue)
+		cpuUtilization, err := strconv.ParseInt(cpuValue, 10, 32)
 		if err != nil || cpuUtilization < 1 {
-			return fmt.Errorf("%s must be a positive integer percentage, got %q", HpaCpuUtilizationAnnotationKey, cpuValue)
+			return fmt.Errorf("%s must be a positive integer percentage, got %q", HpaCpuAnnotationKey, cpuValue)
 		}
 	}
 

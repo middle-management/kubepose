@@ -180,6 +180,18 @@ func validateService(service types.ServiceConfig) error {
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
 		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
 	}
+	// Reject HPA annotations on the two service shapes that never reach the
+	// Deployment branch in Convert; they would otherwise be silent no-ops.
+	// Checked here (not in validateHpaAnnotations) to keep getRestartPolicy
+	// and corev1 usage in the file that already imports them.
+	if _, hasHpa := service.Annotations[HpaMaxReplicasAnnotationKey]; hasHpa {
+		if service.Annotations[ContainerTypeAnnotationKey] == "init" {
+			return fmt.Errorf("%s has no effect on an init container service", HpaMaxReplicasAnnotationKey)
+		}
+		if getRestartPolicy(service) != corev1.RestartPolicyAlways {
+			return fmt.Errorf("%s requires restart: always (the service converts to a standalone Pod, which cannot be autoscaled)", HpaMaxReplicasAnnotationKey)
+		}
+	}
 	return validateHpaAnnotations(service)
 }
 

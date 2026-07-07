@@ -27,9 +27,9 @@ const (
 	// HpaMinReplicasAnnotationKey sets the HPA's floor. Defaults to
 	// deploy.replicas, else 1.
 	HpaMinReplicasAnnotationKey = "kubepose.hpa.minReplicas"
-	// HpaCpuUtilizationAnnotationKey sets the HPA's target average CPU
-	// utilization percentage. Defaults to 80.
-	HpaCpuUtilizationAnnotationKey = "kubepose.hpa.cpu"
+	// HpaCpuAnnotationKey sets the HPA's target average CPU utilization
+	// percentage. Defaults to 80.
+	HpaCpuAnnotationKey = "kubepose.hpa.cpu"
 
 	ConfigHmacKeyAnnotationKey     = "kubepose.config.hmacKey"
 	SecretHmacKeyAnnotationKey     = "kubepose.secret.hmacKey"
