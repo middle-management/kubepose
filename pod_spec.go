@@ -47,11 +47,6 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 		return corev1.RestartPolicyOnFailure
 	}
 
-	if service.Annotations[ContainerTypeAnnotationKey] == "init" {
-		// init containers default to on-failure policy
-		return corev1.RestartPolicyOnFailure
-	}
-
 	// compose default is "no" but that is not valid in k8s deployments etc
 	return corev1.RestartPolicyAlways
 }

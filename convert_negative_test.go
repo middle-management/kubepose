@@ -6,6 +6,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/middle-management/kubepose"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // TestConvertNegative covers invalid or edge-case service configurations.
@@ -240,6 +241,62 @@ func TestConvertNegative(t *testing.T) {
 		}
 	})
 
+	t.Run("init container type without explicit restart always returns error", func(t *testing.T) {
+		t.Parallel()
+		// Unset restart is rejected too: compose's default is no restart
+		// (run-once), so it must not silently become a sidecar.
+		for _, restart := range []string{"", "no", "on-failure", "unless-stopped"} {
+			project := projectWith(types.ServiceConfig{
+				Name:    "setup",
+				Image:   "alpine",
+				Restart: restart,
+				Annotations: map[string]string{
+					kubepose.ContainerTypeAnnotationKey: "init",
+				},
+			})
+			_, err := kubepose.Transformer{}.Convert(project)
+			if err == nil || !strings.Contains(err.Error(), "pre_start") {
+				t.Fatalf("restart %q: expected error pointing at pre_start hooks, got: %v", restart, err)
+			}
+		}
+	})
+
+	t.Run("init container type becomes a native sidecar", func(t *testing.T) {
+		t.Parallel()
+		group := map[string]string{kubepose.ServiceGroupAnnotationKey: "myapp"}
+		project := &types.Project{
+			Services: types.Services{
+				"web": types.ServiceConfig{
+					Name: "web", Image: "nginx",
+					Annotations: group,
+				},
+				"proxy": types.ServiceConfig{
+					Name: "proxy", Image: "envoy",
+					Restart: "always",
+					Annotations: map[string]string{
+						kubepose.ServiceGroupAnnotationKey:  "myapp",
+						kubepose.ContainerTypeAnnotationKey: "init",
+					},
+				},
+			},
+		}
+		resources, err := kubepose.Transformer{}.Convert(project)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(resources.Deployments) != 1 {
+			t.Fatalf("expected 1 deployment, got %d", len(resources.Deployments))
+		}
+		spec := resources.Deployments[0].Spec.Template.Spec
+		if len(spec.InitContainers) != 1 || spec.InitContainers[0].Name != "proxy" {
+			t.Fatalf("expected proxy as the only init container, got %+v", spec.InitContainers)
+		}
+		rp := spec.InitContainers[0].RestartPolicy
+		if rp == nil || *rp != corev1.ContainerRestartPolicyAlways {
+			t.Fatalf("expected container restartPolicy Always on sidecar, got %v", rp)
+		}
+	})
+
 	t.Run("empty cronjob schedule returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
@@ -387,6 +444,7 @@ func TestConvertHpaValidation(t *testing.T) {
 			name: "init container service is rejected, not a silent no-op",
 			service: withCpuReservation(types.ServiceConfig{
 				Name: "web", Image: "nginx",
+				Restart: "always", // valid sidecar, so the HPA check is what fires
 				Annotations: map[string]string{
 					kubepose.HpaMaxReplicasAnnotationKey: "3",
 					kubepose.ContainerTypeAnnotationKey:  "init",

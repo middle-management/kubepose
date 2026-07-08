@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	corev1 "k8s.io/api/core/v1"
@@ -56,7 +57,7 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 	groups := make(map[string][]types.ServiceConfig)
 	for _, service := range project.Services {
 		// Handle standalone pods (non-Always restart policy)
-		if _, isCronJob := service.Annotations[CronJobScheduleAnnotationKey]; !isCronJob && getRestartPolicy(service) != corev1.RestartPolicyAlways && service.Annotations[ContainerTypeAnnotationKey] != "init" {
+		if _, isCronJob := service.Annotations[CronJobScheduleAnnotationKey]; !isCronJob && getRestartPolicy(service) != corev1.RestartPolicyAlways {
 			pod := t.createPod(service)
 			pod.Spec.InitContainers = t.createPreStartContainers(service)
 			pod.Spec.Containers = []corev1.Container{t.createContainer(service)}
@@ -179,6 +180,20 @@ func validateService(service types.ServiceConfig) error {
 	}
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
 		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
+	}
+	// An init-typed service exists to become a native sidecar: an
+	// initContainers entry with container-level restartPolicy Always.
+	// Kubernetes forbids any other restartPolicy on init containers, so a
+	// run-once variant of this annotation could not carry the restart value
+	// anyway — pre_start hooks are the supported spelling for run-once work.
+	// restart: always must be explicit: compose's default is no restart
+	// (run-once), so silently promoting an unset value to a restart-forever
+	// sidecar would diverge from what compose runs locally. The extra
+	// getRestartPolicy check rejects a conflicting deploy.restart_policy.
+	if service.Annotations[ContainerTypeAnnotationKey] == "init" {
+		if !strings.EqualFold(service.Restart, "always") || getRestartPolicy(service) != corev1.RestartPolicyAlways {
+			return fmt.Errorf("%s: init requires explicit restart: always (it becomes a sidecar container); use pre_start hooks for run-once init containers", ContainerTypeAnnotationKey)
+		}
 	}
 	// Reject HPA annotations on the two service shapes that never reach the
 	// Deployment branch in Convert; they would otherwise be silent no-ops.

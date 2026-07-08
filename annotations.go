@@ -11,7 +11,11 @@ const (
 	SelectorMatchLabelsAnnotationKey           = "kubepose.selector.matchLabels"
 	HealthcheckHttpGetPathAnnotationKey        = "kubepose.healthcheck.httpGet.path"
 	HealthcheckHttpGetPortAnnotationKey        = "kubepose.healthcheck.httpGet.port"
-	ContainerTypeAnnotationKey                 = "kubepose.container.type"
+	// ContainerTypeAnnotationKey set to "init" turns a grouped service into a
+	// native sidecar: an initContainers entry with restartPolicy Always.
+	// Requires restart: always; run-once init work is expressed as pre_start
+	// hooks instead.
+	ContainerTypeAnnotationKey = "kubepose.container.type"
 
 	// CronJobScheduleAnnotationKey, when set on a service, emits a CronJob
 	// using the value as the cron schedule (e.g. "0 * * * *").
