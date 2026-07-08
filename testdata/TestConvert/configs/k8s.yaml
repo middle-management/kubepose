@@ -89,3 +89,15 @@ spec:
           name: env_config-290a46c2
         name: env_config
 status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: app
+status:
+  loadBalancer: {}

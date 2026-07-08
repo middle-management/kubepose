@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -97,6 +98,9 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 		}
 
 		if len(appServices) == 0 {
+			if len(initServices) > 0 {
+				return nil, fmt.Errorf("group %q contains only %s: init services, which would silently produce nothing; a sidecar needs an app service in its group", groupName, ContainerTypeAnnotationKey)
+			}
 			continue
 		}
 
@@ -141,16 +145,25 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 			removeDuplicateVolumeMounts(podSpec.Containers)
 			removeDuplicateVolumeMounts(podSpec.InitContainers)
 
-			if len(service.Ports) > 0 {
+			// Every long-running service gets a Kubernetes Service so it is
+			// resolvable by name like in local compose (headless when it
+			// declares no ports). CronJob pods are short-lived, so they only
+			// get one when they declare ports.
+			_, isCronJob := service.Annotations[CronJobScheduleAnnotationKey]
+			if len(service.Ports) > 0 || len(service.Expose) > 0 || !isCronJob {
 				svc := t.createService(service)
-				found := false
+				var existing *corev1.Service
 				for _, s := range resources.Services {
 					if s.ObjectMeta.Name == svc.ObjectMeta.Name {
-						found = true
+						existing = s
 						break
 					}
 				}
-				if !found {
+				if existing != nil {
+					// Another group member created the Service first; fold in
+					// this member's ports so declaration order doesn't matter.
+					mergeServicePorts(existing, svc.Spec.Ports)
+				} else {
 					resources.Services = append(resources.Services, svc)
 					if _, ok := service.Annotations[ServiceExposeAnnotationKey]; ok {
 						ingress := t.createIngress(service)
@@ -173,9 +186,43 @@ func (t Transformer) Convert(project *types.Project) (*Resources, error) {
 func validateService(service types.ServiceConfig) error {
 	if service.HealthCheck != nil && len(service.HealthCheck.Test) > 0 {
 		switch service.HealthCheck.Test[0] {
-		case "CMD-SHELL", "CMD", "NONE":
+		case "CMD-SHELL", "CMD":
+			if len(service.HealthCheck.Test) < 2 {
+				return fmt.Errorf("healthcheck test %q requires a command (the probe would be rejected by Kubernetes on apply)", service.HealthCheck.Test[0])
+			}
+		case "NONE":
 		default:
 			return fmt.Errorf("unsupported healthcheck test type %q (expected CMD, CMD-SHELL, or NONE)", service.HealthCheck.Test[0])
+		}
+	}
+	for _, port := range service.Ports {
+		if port.Published == "" {
+			continue
+		}
+		if _, err := strconv.Atoi(port.Published); err != nil {
+			return fmt.Errorf("invalid published port %q: only single numeric ports are supported", port.Published)
+		}
+	}
+	for _, e := range service.Expose {
+		target, _, _ := strings.Cut(e, "/")
+		if _, err := strconv.Atoi(target); err != nil {
+			return fmt.Errorf(`invalid expose entry %q: only "port" or "port/protocol" is supported`, e)
+		}
+	}
+	// Named users and groups resolve against the image's /etc/passwd locally
+	// but cannot be mapped to Kubernetes securityContext IDs; silently
+	// running as a different user than compose would is not acceptable.
+	if err := validateNumericUserGroup(service.User); err != nil {
+		return err
+	}
+	for _, g := range service.GroupAdd {
+		if _, err := strconv.ParseInt(g, 10, 64); err != nil {
+			return fmt.Errorf("group_add %q: only numeric group IDs are supported on Kubernetes", g)
+		}
+	}
+	for i, hook := range service.PreStart {
+		if err := validateNumericUserGroup(hook.User); err != nil {
+			return fmt.Errorf("pre_start hook %d: %w", i, err)
 		}
 	}
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {

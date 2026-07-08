@@ -51,8 +51,25 @@ func getRestartPolicy(service types.ServiceConfig) corev1.RestartPolicy {
 	return corev1.RestartPolicyAlways
 }
 
+// validateNumericUserGroup rejects compose "user" values ("uid" or "uid:gid")
+// that Kubernetes cannot map: a named user resolves against the image's
+// /etc/passwd locally but has no securityContext equivalent, so the deployed
+// container would silently run as a different user than compose runs it as.
+func validateNumericUserGroup(user string) error {
+	if user == "" {
+		return nil
+	}
+	for _, part := range strings.SplitN(user, ":", 2) {
+		if _, err := strconv.ParseInt(part, 10, 64); err != nil {
+			return fmt.Errorf("user %q: only numeric user/group IDs are supported on Kubernetes", user)
+		}
+	}
+	return nil
+}
+
 // parseUserGroupIDs parses a compose "user" value ("uid" or "uid:gid") into
-// numeric IDs, warning about named users/groups which Kubernetes cannot map.
+// numeric IDs. Non-numeric parts are rejected by validateNumericUserGroup
+// before conversion; the warnings here are a safety net only.
 func parseUserGroupIDs(user string) (runAsUser, runAsGroup *int64) {
 	if user == "" {
 		return nil, nil
@@ -63,14 +80,14 @@ func parseUserGroupIDs(user string) (runAsUser, runAsGroup *int64) {
 	if uid, err := strconv.ParseInt(parts[0], 10, 64); err == nil {
 		runAsUser = &uid
 	} else {
-		fmt.Printf("Warning: skipping named user %q - only numeric IDs are supported\n", parts[0])
+		logrus.Warnf("skipping named user %q - only numeric IDs are supported", parts[0])
 	}
 
 	if len(parts) > 1 {
 		if gid, err := strconv.ParseInt(parts[1], 10, 64); err == nil {
 			runAsGroup = &gid
 		} else {
-			fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", parts[1])
+			logrus.Warnf("skipping named group %q - only numeric IDs are supported", parts[1])
 		}
 	}
 
@@ -87,7 +104,7 @@ func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext 
 		if gid, err := strconv.ParseInt(g, 10, 64); err == nil {
 			supplementalGroups = append(supplementalGroups, gid)
 		} else {
-			fmt.Printf("Warning: skipping named group %q - only numeric IDs are supported\n", g)
+			logrus.Warnf("skipping named group %q - only numeric IDs are supported", g)
 		}
 	}
 

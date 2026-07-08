@@ -2,8 +2,8 @@ services:
   app:
     image: alpine
     command: id
-    user: "1000:1000" # Run as specific user:group
-    group_add: # Add additional groups
-      - docker
+    user: "1000:1000" # Run as specific user:group (numeric IDs only)
+    group_add: # Add additional groups (numeric IDs only)
+      - "999"
     security_opt: # Security options
       - no-new-privileges

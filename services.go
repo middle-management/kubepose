@@ -14,6 +14,18 @@ import (
 // TODO support LoadBalancer, NodePort, ExternalName, ClusterIP types via annotations.
 func (t Transformer) createService(service types.ServiceConfig) *corev1.Service {
 	serviceName := getServiceName(service)
+	ports := appendExposePorts(convertServicePorts(service.Ports), service.Expose)
+	spec := corev1.ServiceSpec{
+		Selector: map[string]string{
+			AppSelectorLabelKey: serviceName,
+		},
+		Ports: ports,
+	}
+	if len(ports) == 0 {
+		// Compose gives every service a DNS name whether or not it publishes
+		// ports. A headless Service keeps that contract on Kubernetes.
+		spec.ClusterIP = corev1.ClusterIPNone
+	}
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -24,12 +36,53 @@ func (t Transformer) createService(service types.ServiceConfig) *corev1.Service 
 			Annotations: mergeMaps(service.Annotations, t.Annotations),
 			Labels:      mergeMaps(service.Labels, t.Labels),
 		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{
-				AppSelectorLabelKey: serviceName,
-			},
-			Ports: convertServicePorts(service.Ports),
-		},
+		Spec: spec,
+	}
+}
+
+// appendExposePorts adds compose expose entries ("port" or "port/protocol")
+// as Service ports, skipping targets already covered by published ports.
+// Entries are validated in validateService, so parse failures are skipped.
+func appendExposePorts(ports []corev1.ServicePort, expose []string) []corev1.ServicePort {
+	seen := make(map[int]bool)
+	for _, p := range ports {
+		seen[p.TargetPort.IntValue()] = true
+	}
+	for _, e := range expose {
+		target, protocol, _ := strings.Cut(e, "/")
+		n, err := strconv.Atoi(target)
+		if err != nil || seen[n] {
+			continue
+		}
+		seen[n] = true
+		ports = append(ports, corev1.ServicePort{
+			Name:       strconv.Itoa(n),
+			Port:       int32(n),
+			TargetPort: intstr.FromInt(n),
+			Protocol:   convertProtocol(protocol),
+		})
+	}
+	return ports
+}
+
+// mergeServicePorts folds another group member's ports into an existing
+// Service, so port declarations survive regardless of which member was
+// converted first. A headless placeholder becomes a normal ClusterIP Service
+// once any member contributes ports.
+func mergeServicePorts(existing *corev1.Service, ports []corev1.ServicePort) {
+	seen := make(map[int32]bool)
+	for _, p := range existing.Spec.Ports {
+		seen[p.Port] = true
+	}
+	for _, p := range ports {
+		if seen[p.Port] {
+			continue
+		}
+		seen[p.Port] = true
+		existing.Spec.Ports = append(existing.Spec.Ports, p)
+	}
+	if len(existing.Spec.Ports) > 0 {
+		existing.Spec.ClusterIP = ""
 	}
 }
 
@@ -103,6 +156,22 @@ func (t Transformer) createIngress(service types.ServiceConfig) *networkingv1.In
 			servicePort = published
 			break
 		}
+	}
+	if servicePort == 0 {
+		for _, e := range service.Expose {
+			target, protocol, _ := strings.Cut(e, "/")
+			if protocol != "" && !strings.EqualFold(protocol, "tcp") {
+				continue
+			}
+			if p, err := strconv.Atoi(target); err == nil {
+				servicePort = int32(p)
+				break
+			}
+		}
+	}
+	if servicePort == 0 {
+		// A portless service has nothing an Ingress could route to.
+		return nil
 	}
 
 	var rules []networkingv1.IngressRule

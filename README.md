@@ -108,7 +108,7 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Shell Access | ✅ | `stdin_open` and `tty` |
 | Resource Limits | ✅ | CPU and memory constraints |
 | Health Checks | ✅ | Supports test commands and HTTP checks |
-| User Settings | ✅ | Numeric user/group IDs only |
+| User Settings | ✅ | Numeric user/group IDs only; named IDs fail conversion since they would resolve differently than in local compose |
 | Stop Grace Period | ✅ | `stop_grace_period` maps to `terminationGracePeriodSeconds` (sub-second values round up) |
 | Pre-start Hooks | ✅ | `pre_start` maps to init containers |
 
@@ -117,8 +117,9 @@ The tests in the `testdata` directory are integration tests which also work as e
 | Feature | Status | Description |
 |---------|:------:|-------------|
 | Ports | ✅ | TCP/UDP port mapping |
+| Expose | ✅ | `expose` entries become Service ports (no host publishing) |
 | Service Exposure | ✅ | Via Kubernetes annotations |
-| Internal DNS | ❌ | Use Kubernetes DNS instead |
+| Internal DNS | ✅ | Every long-running service gets a Kubernetes Service, headless when it declares no ports, so services resolve by name like on the compose network |
 | Custom Networks | ❌ | Use Kubernetes networking |
 
 ### Storage & State
