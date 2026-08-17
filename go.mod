@@ -6,7 +6,7 @@ require (
 	github.com/alexflint/go-arg v1.6.1
 	github.com/compose-spec/compose-go/v2 v2.14.0
 	github.com/google/go-cmp v0.7.0
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.0
 	k8s.io/api v0.36.3
 	k8s.io/apimachinery v0.36.3
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
