@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: web
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: web
+    spec:
+      containers:
+      - image: nginx
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /docker-entrypoint.d/warm-cache.sh
+          preStop:
+            exec:
+              command:
+              - nginx
+              - -s
+              - quit
+        name: web
+        resources: {}
+      initContainers:
+      - image: fluentd
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - fluentd
+              - --flush
+        name: logshipper
+        resources: {}
+        restartPolicy: Always
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+    spec:
+      containers:
+      - args:
+        - sleep
+        - infinity
+        env:
+        - name: QUEUE
+          value: jobs
+        image: busybox
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - echo started && (cd /srv && REGISTRY_URL=http://registry:8080 ./register.sh)
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - (cd /srv && ./drain.sh)
+        name: worker
+        resources: {}
+      restartPolicy: Always
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+status: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: web
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: worker
+status:
+  loadBalancer: {}

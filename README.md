@@ -111,6 +111,8 @@ The tests in the `testdata` directory are integration tests which also work as e
 | User Settings | ✅ | Numeric user/group IDs only; named IDs fail conversion since they would resolve differently than in local compose |
 | Stop Grace Period | ✅ | `stop_grace_period` maps to `terminationGracePeriodSeconds` (sub-second values round up) |
 | Pre-start Hooks | ✅ | `pre_start` maps to init containers |
+| Post-start Hooks | ✅ | `post_start` maps to `lifecycle.postStart` |
+| Pre-stop Hooks | ✅ | `pre_stop` maps to `lifecycle.preStop` |
 
 ### Networking
 
@@ -304,6 +306,57 @@ Hook containers inherit the service's volume mounts, matching compose's behavior
 Differences from compose semantics:
 - `per_replica` has no Kubernetes equivalent: init containers always run once per pod, so every replica runs its own hooks.
 - Init containers re-run whenever a pod is (re)created, whereas compose skips hooks that already succeeded for an unchanged service.
+
+### Post-start and Pre-stop Hooks
+
+Compose `post_start` and `pre_stop` hooks are converted to the container's Kubernetes [lifecycle handlers](https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/). Like compose, which runs them with a `docker exec` into the running container, they run inside the service container itself rather than in a container of their own.
+
+```yaml
+services:
+  web:
+    image: nginx
+    # A lone hook with nothing but a command is exec'd directly, so the
+    # image needs no shell
+    post_start:
+      - command: ./warm-cache.sh
+    pre_stop:
+      - command: nginx -s quit
+
+  worker:
+    image: busybox
+    command: sleep infinity
+    post_start:
+      # Several hooks, a working_dir or a hook environment are rendered
+      # into a single /bin/sh script instead
+      - command: echo started
+      - command: ./register.sh
+        working_dir: /srv
+        environment:
+          REGISTRY_URL: http://registry:8080
+```
+
+Kubernetes allows one handler per lifecycle event and execs its command list directly, without a shell. A single hook that carries nothing but a `command` therefore maps one to one and runs in images that have no shell at all. Anything else is rendered as one `/bin/sh -c` script: the hooks are chained with `&&` so they run in order and stop at the first failure, and each hook that sets `working_dir` or `environment` is wrapped in a subshell so neither leaks into the hooks after it. Arguments are quoted, so a `$VAR` in a hook command stays literal exactly as it does when compose execs it.
+
+Hook fields map as follows:
+
+| Compose Field | Kubernetes Field |
+|---------------|------------------|
+| `command` | `lifecycle.postStart`/`lifecycle.preStop` `exec.command` |
+| `working_dir` | `cd` into the directory within the hook's subshell |
+| `environment` | shell variable assignments on the hook's command (a key with no value is already inherited from the container environment) |
+| `user` | not supported, see below |
+| `privileged` | not supported, see below |
+
+`image` and `per_replica` are `pre_start`-only in the compose spec and are not accepted on these hooks.
+
+Conversion fails rather than silently dropping `privileged: true`, or a `user` that differs from the service's own: the hook runs inside a container whose user and privileges are fixed when the container is created, and switching from the inside would depend on `su`/`runuser` existing in the image and on the container already being privileged enough. Use a service-level `user`, or a `pre_start` hook, when the work needs different credentials.
+
+Sidecars (`kubepose.container.type: init`) take lifecycle handlers too. `pre_start` hooks do not, since Kubernetes does not allow `lifecycle` on regular init containers - which is fine, because those hooks run to completion before the service container starts anyway.
+
+Differences from compose semantics:
+- A failing `pre_stop` hook does not abort the shutdown. Compose aborts the container stop; Kubernetes logs the failure and proceeds with termination.
+- `pre_stop` shares the pod's `terminationGracePeriodSeconds` (set from `stop_grace_period`) with the container's own shutdown, so a slow hook eats into the time the container gets after `SIGTERM`.
+- `postStart` runs concurrently with the container's entrypoint, and the container does not reach `Running` until it returns.
 
 ### Sidecar Containers
 
