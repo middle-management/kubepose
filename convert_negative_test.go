@@ -1,12 +1,14 @@
 package kubepose_test
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/middle-management/kubepose"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 // TestConvertNegative covers invalid or edge-case service configurations.
@@ -555,3 +557,175 @@ func TestConvertHpaValidation(t *testing.T) {
 }
 
 func intPtr(i int) *int { return &i }
+
+// TestConvertLifecycleHooks covers post_start and pre_stop, which become the
+// container's Kubernetes lifecycle handlers.
+func TestConvertLifecycleHooks(t *testing.T) {
+	t.Parallel()
+
+	lifecycleOf := func(t *testing.T, svc types.ServiceConfig) *corev1.Lifecycle {
+		t.Helper()
+		resources, err := kubepose.Transformer{}.Convert(projectWith(svc))
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		return resources.Deployments[0].Spec.Template.Spec.Containers[0].Lifecycle
+	}
+
+	t.Run("no hooks leaves lifecycle unset", func(t *testing.T) {
+		t.Parallel()
+		if lifecycle := lifecycleOf(t, types.ServiceConfig{Name: "web", Image: "nginx"}); lifecycle != nil {
+			t.Fatalf("expected no lifecycle, got %+v", lifecycle)
+		}
+	})
+
+	t.Run("lone plain hook is exec'd without a shell", func(t *testing.T) {
+		t.Parallel()
+		// The image may not have a shell, and compose exec's the command
+		// list directly too, so nothing should be wrapped here.
+		lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name:      "web",
+			Image:     "nginx",
+			PostStart: []types.ServiceHook{{Command: []string{"warm", "--cache"}}},
+			PreStop:   []types.ServiceHook{{Command: []string{"nginx", "-s", "quit"}}},
+		})
+		if lifecycle == nil || lifecycle.PostStart == nil || lifecycle.PreStop == nil {
+			t.Fatalf("expected both handlers, got %+v", lifecycle)
+		}
+		if got, want := lifecycle.PostStart.Exec.Command, []string{"warm", "--cache"}; !slices.Equal(got, want) {
+			t.Fatalf("postStart: expected %q, got %q", want, got)
+		}
+		if got, want := lifecycle.PreStop.Exec.Command, []string{"nginx", "-s", "quit"}; !slices.Equal(got, want) {
+			t.Fatalf("preStop: expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("several hooks are chained in one shell script", func(t *testing.T) {
+		t.Parallel()
+		lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name:  "web",
+			Image: "nginx",
+			PostStart: []types.ServiceHook{
+				{Command: []string{"first"}},
+				{Command: []string{"second"}},
+			},
+		})
+		want := []string{"/bin/sh", "-c", "first && second"}
+		if got := lifecycle.PostStart.Exec.Command; !slices.Equal(got, want) {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("working_dir and environment are scoped to their hook", func(t *testing.T) {
+		t.Parallel()
+		// The subshell keeps the cd and the assignment from leaking into
+		// the hook that runs after it. An entry with no value means
+		// "inherit", which the container environment already provides.
+		lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name:  "web",
+			Image: "nginx",
+			PostStart: []types.ServiceHook{
+				{
+					Command:     []string{"./register.sh"},
+					WorkingDir:  "/srv",
+					Environment: types.MappingWithEquals{"B": ptr.To("2"), "A": ptr.To("1"), "INHERITED": nil},
+				},
+				{Command: []string{"pwd"}},
+			},
+		})
+		want := []string{"/bin/sh", "-c", "(cd /srv && A=1 B=2 ./register.sh) && pwd"}
+		if got := lifecycle.PostStart.Exec.Command; !slices.Equal(got, want) {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("shell metacharacters are quoted, not expanded", func(t *testing.T) {
+		t.Parallel()
+		// Kubernetes does not expand anything in a lifecycle exec command
+		// and neither does compose, which exec's the list directly. The
+		// shell we introduce must not start expanding on its own.
+		lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name:  "web",
+			Image: "nginx",
+			PostStart: []types.ServiceHook{
+				{Command: []string{"echo", "$HOME *", "it's"}},
+				{Command: []string{"true"}},
+			},
+		})
+		want := []string{"/bin/sh", "-c", `echo '$HOME *' 'it'\''s' && true`}
+		if got := lifecycle.PostStart.Exec.Command; !slices.Equal(got, want) {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("hook user matching the service user is kept", func(t *testing.T) {
+		t.Parallel()
+		// Not a switch, so nothing has to happen inside the container.
+		lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name:    "web",
+			Image:   "nginx",
+			User:    "1000:1000",
+			PreStop: []types.ServiceHook{{Command: []string{"drain"}, User: "1000:1000"}},
+		})
+		if got, want := lifecycle.PreStop.Exec.Command, []string{"drain"}; !slices.Equal(got, want) {
+			t.Fatalf("expected %q, got %q", want, got)
+		}
+	})
+
+	rejected := []struct {
+		name    string
+		service types.ServiceConfig
+		wantErr string
+	}{
+		{
+			name: "privileged hook",
+			service: types.ServiceConfig{
+				Name:      "web",
+				Image:     "nginx",
+				PostStart: []types.ServiceHook{{Command: []string{"mount"}, Privileged: true}},
+			},
+			wantErr: "post_start hook 0: privileged is not supported",
+		},
+		{
+			name: "hook user differing from the service user",
+			service: types.ServiceConfig{
+				Name:    "web",
+				Image:   "nginx",
+				User:    "1000",
+				PreStop: []types.ServiceHook{{Command: []string{"drain"}, User: "0"}},
+			},
+			wantErr: `pre_stop hook 0: user "0" is not supported`,
+		},
+		{
+			name: "hook user on a service without one",
+			service: types.ServiceConfig{
+				Name:      "web",
+				Image:     "nginx",
+				PostStart: []types.ServiceHook{{Command: []string{"warm"}, User: "0:0"}},
+			},
+			wantErr: "the service declares no user of its own",
+		},
+		{
+			name: "hook without a command",
+			service: types.ServiceConfig{
+				Name:    "web",
+				Image:   "nginx",
+				PreStop: []types.ServiceHook{{}},
+			},
+			wantErr: "pre_stop hook 0 requires a command",
+		},
+	}
+
+	for _, tc := range rejected {
+		t.Run(tc.name+" returns error", func(t *testing.T) {
+			t.Parallel()
+			_, err := kubepose.Transformer{}.Convert(projectWith(tc.service))
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tc.wantErr, err)
+			}
+		})
+	}
+}

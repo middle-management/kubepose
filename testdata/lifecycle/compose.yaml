@@ -1,0 +1,45 @@
+
+services:
+  # A single hook with nothing but a command is exec'd directly, so the image
+  # needs no shell.
+  web:
+    image: nginx
+    post_start:
+      - command: ["/docker-entrypoint.d/warm-cache.sh"]
+    pre_stop:
+      - command: nginx -s quit
+
+  # Several hooks, a working_dir and a hook environment need a shell: they are
+  # rendered into one /bin/sh script, each hook in its own subshell.
+  worker:
+    image: busybox
+    command: sleep infinity
+    user: "1000:1000"
+    environment:
+      QUEUE: jobs
+    post_start:
+      - command: echo started
+      - command: ./register.sh
+        working_dir: /srv
+        environment:
+          REGISTRY_URL: http://registry:8080
+          # No value means "inherit", which the container environment
+          # already provides
+          QUEUE:
+    pre_stop:
+      # Matches the service user, so it is a no-op rather than a switch
+      - command: ./drain.sh
+        working_dir: /srv
+        user: "1000:1000"
+
+  # A sidecar (an init container with restartPolicy Always) takes lifecycle
+  # handlers too; a regular init container - what a pre_start hook becomes -
+  # does not, which is why those keep running as their own container.
+  logshipper:
+    image: fluentd
+    restart: always # required for kubepose.container.type: init
+    annotations:
+      kubepose.service.group: web
+      kubepose.container.type: init
+    pre_stop:
+      - command: fluentd --flush

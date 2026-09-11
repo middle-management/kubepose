@@ -2,6 +2,7 @@ package kubepose
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -37,6 +38,7 @@ func (t Transformer) createContainer(service types.ServiceConfig) corev1.Contain
 		ReadinessProbe:  readinessProbe,
 		StartupProbe:    startupProbe,
 		RestartPolicy:   containerRestartPolicy,
+		Lifecycle:       getLifecycle(service),
 	}
 }
 
@@ -195,4 +197,118 @@ func removeDuplicateVolumeMounts(containers []corev1.Container) {
 		}
 		containers[i].VolumeMounts = unique
 	}
+}
+
+// getLifecycle converts a service's post_start and pre_stop hooks into the
+// container's Kubernetes lifecycle handlers.
+//
+// Unlike pre_start, which becomes an init container, these hooks run inside the
+// already-created service container - the same thing compose does with a
+// `docker exec` into the running container. The compose spec reflects that:
+// post_start and pre_stop take only command, user, privileged, working_dir and
+// environment (image and per_replica are pre_start-only), and validateService
+// rejects the two of those that cannot be honored from inside a container.
+func getLifecycle(service types.ServiceConfig) *corev1.Lifecycle {
+	postStart := hookExecAction(service.PostStart)
+	preStop := hookExecAction(service.PreStop)
+	if postStart == nil && preStop == nil {
+		return nil
+	}
+
+	lifecycle := &corev1.Lifecycle{}
+	if postStart != nil {
+		lifecycle.PostStart = &corev1.LifecycleHandler{Exec: postStart}
+	}
+	if preStop != nil {
+		lifecycle.PreStop = &corev1.LifecycleHandler{Exec: preStop}
+	}
+	return lifecycle
+}
+
+// hookExecAction renders compose lifecycle hooks into the single exec handler
+// Kubernetes allows per lifecycle event.
+//
+// A lone hook that carries nothing but a command maps one to one: Kubernetes
+// execs the argument list directly, exactly as compose does, so the image needs
+// no shell. Anything else - several hooks, a working_dir, or hook environment -
+// is rendered as a /bin/sh script, since only a shell can chain commands, change
+// directory, or set variables for the command it runs. The arguments are quoted
+// so the shell passes them through literally, which keeps the two paths
+// equivalent: neither expands a `$VAR` that compose would have exec'd verbatim.
+func hookExecAction(hooks []types.ServiceHook) *corev1.ExecAction {
+	if len(hooks) == 0 {
+		return nil
+	}
+
+	if len(hooks) == 1 && !hookNeedsShell(hooks[0]) {
+		return &corev1.ExecAction{Command: hooks[0].Command}
+	}
+
+	scripts := make([]string, 0, len(hooks))
+	for _, hook := range hooks {
+		scripts = append(scripts, hookScript(hook))
+	}
+	// Joined with && because compose runs the hooks in declared order and
+	// stops at the first one that fails.
+	return &corev1.ExecAction{
+		Command: []string{"/bin/sh", "-c", strings.Join(scripts, " && ")},
+	}
+}
+
+func hookNeedsShell(hook types.ServiceHook) bool {
+	return hook.WorkingDir != "" || len(hookEnvironment(hook)) > 0
+}
+
+// hookScript renders one hook as a shell command. working_dir and environment
+// are scoped to the hook with a subshell so they do not leak into the hooks
+// that run after it.
+func hookScript(hook types.ServiceHook) string {
+	args := make([]string, 0, len(hook.Command))
+	for _, arg := range hook.Command {
+		args = append(args, shellQuote(arg))
+	}
+
+	script := strings.Join(append(hookEnvironment(hook), strings.Join(args, " ")), " ")
+	if hook.WorkingDir != "" {
+		script = "cd " + shellQuote(hook.WorkingDir) + " && " + script
+	}
+	if hookNeedsShell(hook) {
+		return "(" + script + ")"
+	}
+	return script
+}
+
+// hookEnvironment returns the hook's environment as sorted shell assignments.
+// A key with no value means "inherit the value from the surrounding
+// environment", which the container environment already hands to the exec'd
+// process, so it is left alone rather than clobbered with an empty string.
+func hookEnvironment(hook types.ServiceHook) []string {
+	keys := make([]string, 0, len(hook.Environment))
+	for key, value := range hook.Environment {
+		if value == nil {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	assignments := make([]string, 0, len(keys))
+	for _, key := range keys {
+		assignments = append(assignments, key+"="+shellQuote(*hook.Environment[key]))
+	}
+	return assignments
+}
+
+// reShellSafeWord matches words a shell passes through untouched. "=" is
+// deliberately absent: an unquoted foo=bar in command position would be read
+// as a variable assignment rather than as the argument compose passes.
+var reShellSafeWord = regexp.MustCompile(`^[A-Za-z0-9_@%+:,./-]+$`)
+
+// shellQuote renders s as a shell word that expands to s and nothing else,
+// quoting only when the word needs it so the generated script stays readable.
+func shellQuote(s string) string {
+	if reShellSafeWord.MatchString(s) {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

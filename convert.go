@@ -225,6 +225,19 @@ func validateService(service types.ServiceConfig) error {
 			return fmt.Errorf("pre_start hook %d: %w", i, err)
 		}
 	}
+	for _, event := range []struct {
+		name  string
+		hooks []types.ServiceHook
+	}{
+		{"post_start", service.PostStart},
+		{"pre_stop", service.PreStop},
+	} {
+		for i, hook := range event.hooks {
+			if err := validateLifecycleHook(service, event.name, i, hook); err != nil {
+				return err
+			}
+		}
+	}
 	if schedule, ok := service.Annotations[CronJobScheduleAnnotationKey]; ok && schedule == "" {
 		return fmt.Errorf("%s must not be empty", CronJobScheduleAnnotationKey)
 	}
@@ -264,6 +277,32 @@ func getServiceName(service types.ServiceConfig) string {
 		return name
 	}
 	return service.Name
+}
+
+// validateLifecycleHook rejects post_start and pre_stop hooks that a Kubernetes
+// lifecycle handler cannot honor. A pre_start hook becomes its own init
+// container and can therefore pick its own user and privileges; these hooks
+// instead run inside the already-created service container, whose user and
+// privileges are fixed when it is created and cannot be changed from the
+// inside. Honoring them would need su/runuser to exist in the image and the
+// container to already be privileged enough to switch - so the hook would
+// quietly run as the wrong user, or not at all, instead of as compose runs it.
+func validateLifecycleHook(service types.ServiceConfig, name string, index int, hook types.ServiceHook) error {
+	if len(hook.Command) == 0 {
+		return fmt.Errorf("%s hook %d requires a command (the lifecycle handler would be rejected by Kubernetes on apply)", name, index)
+	}
+	if hook.Privileged {
+		return fmt.Errorf("%s hook %d: privileged is not supported; the hook runs inside the service container, whose privileges are fixed when it is created", name, index)
+	}
+	// An unset user means "run as the container's user", which is what the
+	// lifecycle handler does anyway.
+	if hook.User != "" && hook.User != service.User {
+		if service.User == "" {
+			return fmt.Errorf("%s hook %d: user %q is not supported; the hook runs inside the service container, which cannot switch user from the inside, and the service declares no user of its own", name, index, hook.User)
+		}
+		return fmt.Errorf("%s hook %d: user %q is not supported; the hook runs inside the service container, so only the service user %q can be used", name, index, hook.User, service.User)
+	}
+	return nil
 }
 
 func mergeMaps(maps ...map[string]string) map[string]string {
