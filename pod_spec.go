@@ -120,7 +120,7 @@ func getSecurityContext(service types.ServiceConfig) *corev1.PodSecurityContext 
 	}
 }
 
-func getHookSecurityContext(hook types.ServiceHook) *corev1.SecurityContext {
+func getHookSecurityContext(hook types.PreStartHook) *corev1.SecurityContext {
 	runAsUser, runAsGroup := parseUserGroupIDs(hook.User)
 	if runAsUser == nil && runAsGroup == nil && !hook.Privileged {
 		return nil
