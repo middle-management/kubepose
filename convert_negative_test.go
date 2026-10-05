@@ -21,11 +21,11 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("unknown healthcheck test type returns error not panic", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			HealthCheck: &types.HealthCheckConfig{
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec: types.WorkloadSpec{HealthCheck: &types.HealthCheckConfig{
 				Test: []string{"WHATEVER", "echo", "hi"},
-			},
+			}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil {
@@ -45,13 +45,13 @@ func TestConvertNegative(t *testing.T) {
 		// be reported with its name; iteration order must be deterministic.
 		project := &types.Project{
 			Services: types.Services{
-				"a-good": types.ServiceConfig{Name: "a-good", Image: "nginx"},
+				"a-good": types.ServiceConfig{Name: "a-good", ContainerSpec: types.ContainerSpec{Image: "nginx"}},
 				"z-bad": types.ServiceConfig{
-					Name:  "z-bad",
-					Image: "nginx",
-					HealthCheck: &types.HealthCheckConfig{
+					Name:          "z-bad",
+					ContainerSpec: types.ContainerSpec{Image: "nginx"},
+					WorkloadSpec: types.WorkloadSpec{HealthCheck: &types.HealthCheckConfig{
 						Test: []string{"BOGUS"},
-					},
+					}},
 				},
 			},
 		}
@@ -67,11 +67,11 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("healthcheck NONE disables probes", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			HealthCheck: &types.HealthCheckConfig{
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec: types.WorkloadSpec{HealthCheck: &types.HealthCheckConfig{
 				Test: []string{"NONE"},
-			},
+			}},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -89,12 +89,12 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("healthcheck disable=true produces no probes", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			HealthCheck: &types.HealthCheckConfig{
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec: types.WorkloadSpec{HealthCheck: &types.HealthCheckConfig{
 				Test:    []string{"CMD", "/healthz"},
 				Disable: true,
-			},
+			}},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -109,11 +109,11 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("invalid published port returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			Ports: []types.ServicePortConfig{
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec: types.WorkloadSpec{Ports: []types.ServicePortConfig{
 				{Target: 80, Published: "not-a-number"},
-			},
+			}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "invalid published port") {
@@ -124,9 +124,9 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("invalid expose entry returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:   "web",
-			Image:  "nginx",
-			Expose: []string{"not-a-port"},
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec:  types.WorkloadSpec{Expose: []string{"not-a-port"}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "invalid expose entry") {
@@ -138,13 +138,12 @@ func TestConvertNegative(t *testing.T) {
 		t.Parallel()
 		// Documents existing behavior at convert.go getProbes.
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			Ports: []types.ServicePortConfig{{Target: 8080, Protocol: "tcp"}},
-			Annotations: map[string]string{
+			Name: "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 				kubepose.HealthcheckHttpGetPathAnnotationKey: "/healthz",
 				kubepose.HealthcheckHttpGetPortAnnotationKey: "not-a-port",
-			},
+			}},
+			WorkloadSpec: types.WorkloadSpec{Ports: []types.ServicePortConfig{{Target: 8080, Protocol: "tcp"}}},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -165,11 +164,10 @@ func TestConvertNegative(t *testing.T) {
 		// Documents convert.go getMatchLabels: bad JSON is logged as a
 		// warning and the default app selector is used instead.
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			Annotations: map[string]string{
+			Name: "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 				kubepose.SelectorMatchLabelsAnnotationKey: "{not valid json",
-			},
+			}},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -189,9 +187,8 @@ func TestConvertNegative(t *testing.T) {
 		// container would silently run as a different user.
 		for _, user := range []string{"ubuntu", "1000:staff"} {
 			project := projectWith(types.ServiceConfig{
-				Name:  "web",
-				Image: "nginx",
-				User:  user,
+				Name:          "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", User: user},
 			})
 			_, err := kubepose.Transformer{}.Convert(project)
 			if err == nil || !strings.Contains(err.Error(), "only numeric user/group IDs") {
@@ -203,9 +200,8 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("named group_add returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:     "web",
-			Image:    "nginx",
-			GroupAdd: []string{"docker"},
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx", GroupAdd: []string{"docker"}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "only numeric group IDs") {
@@ -216,10 +212,10 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("named pre_start hook user returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			PreStart: []types.ServiceHook{
-				{Command: []string{"echo", "hi"}, User: "root"},
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			PreStart: []types.PreStartHook{
+				{ContainerSpec: types.ContainerSpec{Command: []string{"echo", "hi"}, User: "root"}},
 			},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
@@ -231,9 +227,8 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("numeric user populates SecurityContext", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			User:  "1000:2000",
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx", User: "1000:2000"},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -253,11 +248,11 @@ func TestConvertNegative(t *testing.T) {
 		// ["CMD"] with no following args would yield an exec probe with an
 		// empty Command slice, which Kubernetes rejects on apply.
 		project := projectWith(types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
-			HealthCheck: &types.HealthCheckConfig{
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			WorkloadSpec: types.WorkloadSpec{HealthCheck: &types.HealthCheckConfig{
 				Test: []string{"CMD"},
-			},
+			}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "requires a command") {
@@ -268,12 +263,11 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("group with only init services returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name: "proxy", Image: "envoy",
-			Restart: "always",
-			Annotations: map[string]string{
+			Name: "proxy", Restart: "always",
+			ContainerSpec: types.ContainerSpec{Image: "envoy", Annotations: map[string]string{
 				kubepose.ServiceGroupAnnotationKey:  "myapp",
 				kubepose.ContainerTypeAnnotationKey: "init",
-			},
+			}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "only") || !strings.Contains(err.Error(), "init") {
@@ -284,8 +278,8 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("portless service gets a headless Service for DNS parity", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "db",
-			Image: "postgres",
+			Name:          "db",
+			ContainerSpec: types.ContainerSpec{Image: "postgres"},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -306,9 +300,9 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("expose entries become Service ports", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:   "db",
-			Image:  "postgres",
-			Expose: []string{"5432", "9000/udp"},
+			Name:          "db",
+			ContainerSpec: types.ContainerSpec{Image: "postgres"},
+			WorkloadSpec:  types.WorkloadSpec{Expose: []string{"5432", "9000/udp"}},
 		})
 		resources, err := kubepose.Transformer{}.Convert(project)
 		if err != nil {
@@ -336,11 +330,10 @@ func TestConvertNegative(t *testing.T) {
 		for _, restart := range []string{"", "no", "on-failure", "unless-stopped"} {
 			project := projectWith(types.ServiceConfig{
 				Name:    "setup",
-				Image:   "alpine",
 				Restart: restart,
-				Annotations: map[string]string{
+				ContainerSpec: types.ContainerSpec{Image: "alpine", Annotations: map[string]string{
 					kubepose.ContainerTypeAnnotationKey: "init",
-				},
+				}},
 			})
 			_, err := kubepose.Transformer{}.Convert(project)
 			if err == nil || !strings.Contains(err.Error(), "pre_start") {
@@ -355,16 +348,16 @@ func TestConvertNegative(t *testing.T) {
 		project := &types.Project{
 			Services: types.Services{
 				"web": types.ServiceConfig{
-					Name: "web", Image: "nginx",
-					Annotations: group,
+					Name:          "web",
+					ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: group},
 				},
 				"proxy": types.ServiceConfig{
-					Name: "proxy", Image: "envoy",
+					Name:    "proxy",
 					Restart: "always",
-					Annotations: map[string]string{
+					ContainerSpec: types.ContainerSpec{Image: "envoy", Annotations: map[string]string{
 						kubepose.ServiceGroupAnnotationKey:  "myapp",
 						kubepose.ContainerTypeAnnotationKey: "init",
-					},
+					}},
 				},
 			},
 		}
@@ -388,11 +381,10 @@ func TestConvertNegative(t *testing.T) {
 	t.Run("empty cronjob schedule returns error", func(t *testing.T) {
 		t.Parallel()
 		project := projectWith(types.ServiceConfig{
-			Name:  "job",
-			Image: "alpine",
-			Annotations: map[string]string{
+			Name: "job",
+			ContainerSpec: types.ContainerSpec{Image: "alpine", Annotations: map[string]string{
 				kubepose.CronJobScheduleAnnotationKey: "",
-			},
+			}},
 		})
 		_, err := kubepose.Transformer{}.Convert(project)
 		if err == nil || !strings.Contains(err.Error(), "must not be empty") {
@@ -426,117 +418,133 @@ func TestConvertHpaValidation(t *testing.T) {
 		{
 			name: "minReplicas without maxReplicas names only the set key",
 			service: types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{kubepose.HpaMinReplicasAnnotationKey: "2"},
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMinReplicasAnnotationKey: "2",
+				}},
 			},
 			wantErr: kubepose.HpaMinReplicasAnnotationKey + " has no effect without",
 		},
 		{
 			name: "cpu without maxReplicas names only the set key",
 			service: types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{kubepose.HpaCpuAnnotationKey: "70"},
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaCpuAnnotationKey: "70",
+				}},
 			},
 			wantErr: kubepose.HpaCpuAnnotationKey + " has no effect without",
 		},
 		{
 			name: "non-numeric maxReplicas",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "lots"},
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "lots",
+				}},
 			}),
 			wantErr: "must be a positive integer",
 		},
 		{
 			name: "maxReplicas overflowing int32 is rejected, not truncated",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
+				Name: "web",
 				// int32-truncates to 3; must fail validation instead of
 				// emitting a plausible-looking wrong HPA.
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "4294967299"},
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "4294967299",
+				}},
 			}),
 			wantErr: "must be a positive integer",
 		},
 		{
 			name: "minReplicas above maxReplicas",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 					kubepose.HpaMinReplicasAnnotationKey: "5",
 					kubepose.HpaMaxReplicasAnnotationKey: "3",
-				},
+				}},
 			}),
 			wantErr: "must not exceed",
 		},
 		{
 			name: "deploy.replicas above maxReplicas as implicit floor",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Deploy:      &types.DeployConfig{Replicas: intPtr(8)},
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+				Name:   "web",
+				Deploy: &types.DeployConfig{Replicas: intPtr(8)},
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+				}},
 			}),
 			wantErr: "must not exceed",
 		},
 		{
 			name: "zero cpu target",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 					kubepose.HpaMaxReplicasAnnotationKey: "3",
 					kubepose.HpaCpuAnnotationKey:         "0",
-				},
+				}},
 			}),
 			wantErr: "positive integer percentage",
 		},
 		{
 			name: "combined with cronjob schedule",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 					kubepose.HpaMaxReplicasAnnotationKey:  "3",
 					kubepose.CronJobScheduleAnnotationKey: "0 * * * *",
-				},
+				}},
 			}),
 			wantErr: "cannot be combined with",
 		},
 		{
 			name: "combined with global mode",
 			service: types.ServiceConfig{
-				Name: "web", Image: "nginx",
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+				}},
 				Deploy: &types.DeployConfig{
 					Mode:      "global",
 					Resources: types.Resources{Reservations: &types.Resource{NanoCPUs: 1}},
 				},
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
 			},
 			wantErr: "deploy.mode: global",
 		},
 		{
 			name: "missing cpu reservation",
 			service: types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+				}},
 			},
 			wantErr: "requires deploy.resources.reservations.cpus",
 		},
 		{
 			name: "standalone-pod service (restart: no) is rejected, not a silent no-op",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Restart:     "no",
-				Annotations: map[string]string{kubepose.HpaMaxReplicasAnnotationKey: "3"},
+				Name:    "web",
+				Restart: "no",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
+					kubepose.HpaMaxReplicasAnnotationKey: "3",
+				}},
 			}),
 			wantErr: "requires restart: always",
 		},
 		{
 			name: "init container service is rejected, not a silent no-op",
 			service: withCpuReservation(types.ServiceConfig{
-				Name: "web", Image: "nginx",
-				Restart: "always", // valid sidecar, so the HPA check is what fires
-				Annotations: map[string]string{
+				Name: "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", Annotations: map[string]string{
 					kubepose.HpaMaxReplicasAnnotationKey: "3",
 					kubepose.ContainerTypeAnnotationKey:  "init",
-				},
+				}},
+				Restart: "always", // valid sidecar, so the HPA check is what fires
 			}),
 			wantErr: "has no effect on an init container",
 		},
@@ -574,7 +582,9 @@ func TestConvertLifecycleHooks(t *testing.T) {
 
 	t.Run("no hooks leaves lifecycle unset", func(t *testing.T) {
 		t.Parallel()
-		if lifecycle := lifecycleOf(t, types.ServiceConfig{Name: "web", Image: "nginx"}); lifecycle != nil {
+		if lifecycle := lifecycleOf(t, types.ServiceConfig{
+			Name: "web", ContainerSpec: types.ContainerSpec{Image: "nginx"},
+		}); lifecycle != nil {
 			t.Fatalf("expected no lifecycle, got %+v", lifecycle)
 		}
 	})
@@ -584,10 +594,10 @@ func TestConvertLifecycleHooks(t *testing.T) {
 		// The image may not have a shell, and compose exec's the command
 		// list directly too, so nothing should be wrapped here.
 		lifecycle := lifecycleOf(t, types.ServiceConfig{
-			Name:      "web",
-			Image:     "nginx",
-			PostStart: []types.ServiceHook{{Command: []string{"warm", "--cache"}}},
-			PreStop:   []types.ServiceHook{{Command: []string{"nginx", "-s", "quit"}}},
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
+			PostStart:     []types.ServiceHook{{Command: []string{"warm", "--cache"}}},
+			PreStop:       []types.ServiceHook{{Command: []string{"nginx", "-s", "quit"}}},
 		})
 		if lifecycle == nil || lifecycle.PostStart == nil || lifecycle.PreStop == nil {
 			t.Fatalf("expected both handlers, got %+v", lifecycle)
@@ -603,8 +613,8 @@ func TestConvertLifecycleHooks(t *testing.T) {
 	t.Run("several hooks are chained in one shell script", func(t *testing.T) {
 		t.Parallel()
 		lifecycle := lifecycleOf(t, types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
 			PostStart: []types.ServiceHook{
 				{Command: []string{"first"}},
 				{Command: []string{"second"}},
@@ -622,8 +632,8 @@ func TestConvertLifecycleHooks(t *testing.T) {
 		// the hook that runs after it. An entry with no value means
 		// "inherit", which the container environment already provides.
 		lifecycle := lifecycleOf(t, types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
 			PostStart: []types.ServiceHook{
 				{
 					Command:     []string{"./register.sh"},
@@ -645,8 +655,8 @@ func TestConvertLifecycleHooks(t *testing.T) {
 		// and neither does compose, which exec's the list directly. The
 		// shell we introduce must not start expanding on its own.
 		lifecycle := lifecycleOf(t, types.ServiceConfig{
-			Name:  "web",
-			Image: "nginx",
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx"},
 			PostStart: []types.ServiceHook{
 				{Command: []string{"echo", "$HOME *", "it's"}},
 				{Command: []string{"true"}},
@@ -662,10 +672,9 @@ func TestConvertLifecycleHooks(t *testing.T) {
 		t.Parallel()
 		// Not a switch, so nothing has to happen inside the container.
 		lifecycle := lifecycleOf(t, types.ServiceConfig{
-			Name:    "web",
-			Image:   "nginx",
-			User:    "1000:1000",
-			PreStop: []types.ServiceHook{{Command: []string{"drain"}, User: "1000:1000"}},
+			Name:          "web",
+			ContainerSpec: types.ContainerSpec{Image: "nginx", User: "1000:1000"},
+			PreStop:       []types.ServiceHook{{Command: []string{"drain"}, User: "1000:1000"}},
 		})
 		if got, want := lifecycle.PreStop.Exec.Command, []string{"drain"}; !slices.Equal(got, want) {
 			t.Fatalf("expected %q, got %q", want, got)
@@ -680,37 +689,36 @@ func TestConvertLifecycleHooks(t *testing.T) {
 		{
 			name: "privileged hook",
 			service: types.ServiceConfig{
-				Name:      "web",
-				Image:     "nginx",
-				PostStart: []types.ServiceHook{{Command: []string{"mount"}, Privileged: true}},
+				Name:          "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx"},
+				PostStart:     []types.ServiceHook{{Command: []string{"mount"}, Privileged: true}},
 			},
 			wantErr: "post_start hook 0: privileged is not supported",
 		},
 		{
 			name: "hook user differing from the service user",
 			service: types.ServiceConfig{
-				Name:    "web",
-				Image:   "nginx",
-				User:    "1000",
-				PreStop: []types.ServiceHook{{Command: []string{"drain"}, User: "0"}},
+				Name:          "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx", User: "1000"},
+				PreStop:       []types.ServiceHook{{Command: []string{"drain"}, User: "0"}},
 			},
 			wantErr: `pre_stop hook 0: user "0" is not supported`,
 		},
 		{
 			name: "hook user on a service without one",
 			service: types.ServiceConfig{
-				Name:      "web",
-				Image:     "nginx",
-				PostStart: []types.ServiceHook{{Command: []string{"warm"}, User: "0:0"}},
+				Name:          "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx"},
+				PostStart:     []types.ServiceHook{{Command: []string{"warm"}, User: "0:0"}},
 			},
 			wantErr: "the service declares no user of its own",
 		},
 		{
 			name: "hook without a command",
 			service: types.ServiceConfig{
-				Name:    "web",
-				Image:   "nginx",
-				PreStop: []types.ServiceHook{{}},
+				Name:          "web",
+				ContainerSpec: types.ContainerSpec{Image: "nginx"},
+				PreStop:       []types.ServiceHook{{}},
 			},
 			wantErr: "pre_stop hook 0 requires a command",
 		},
