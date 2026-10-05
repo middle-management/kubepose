@@ -7,8 +7,8 @@ require (
 	github.com/compose-spec/compose-go/v2 v2.16.1
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.10.2
-	k8s.io/api v0.37.0
-	k8s.io/apimachinery v0.37.0
+	k8s.io/api v0.37.1
+	k8s.io/apimachinery v0.37.1
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
 	sigs.k8s.io/yaml v1.6.0
 )
