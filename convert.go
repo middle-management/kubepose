@@ -2,7 +2,6 @@ package kubepose
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -315,12 +314,20 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 	return merged
 }
 
-var reEnvVars = regexp.MustCompile(`\$([a-zA-Z0-9.-_]+)`)
-
+// escapeEnvs protects text that compose-go has already interpolated: any
+// remaining "$" is literal and belongs to the container's shell, so it must
+// survive kubelet's own $(VAR) and $$ expansion unchanged.
 func escapeEnvs(input []string) []string {
 	var args []string
 	for _, arg := range input {
-		args = append(args, reEnvVars.ReplaceAllString(arg, `$($1)`))
+		var b strings.Builder
+		for i := 0; i < len(arg); i++ {
+			b.WriteByte(arg[i])
+			if arg[i] == '$' && i+1 < len(arg) && (arg[i+1] == '$' || arg[i+1] == '(') {
+				b.WriteByte('$')
+			}
+		}
+		args = append(args, b.String())
 	}
 	return args
 }

@@ -19,3 +19,15 @@ services:
     image: ${VAR_INTERPOLATED_BY_COMPOSE:-}busybox
     healthcheck:
       test: curl -f $VAR_INTERPOLATED_BY_COMPOSE
+  shell:
+    image: busybox:1.36
+    environment:
+      GREETING: hello
+    command:
+      - sh
+      - -c
+      - |
+        echo "$$GREETING"
+        for k in a b; do echo "item $$k"; done
+        echo "price: $$5/month"
+        echo "$$(date) $$$$"

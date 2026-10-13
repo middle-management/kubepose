@@ -106,6 +106,40 @@ status: {}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  name: shell
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: shell
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: shell
+    spec:
+      containers:
+      - args:
+        - sh
+        - -c
+        - |
+          echo "$GREETING"
+          for k in a b; do echo "item $k"; done
+          echo "price: $5/month"
+          echo "$$(date) $$$"
+        env:
+        - name: GREETING
+          value: hello
+        image: busybox:1.36
+        imagePullPolicy: IfNotPresent
+        name: shell
+        resources: {}
+      restartPolicy: Always
+status: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
   name: web
 spec:
   selector:
@@ -119,7 +153,7 @@ spec:
     spec:
       containers:
       - args:
-        - $(VAR_NOT_INTERPOLATED_BY_COMPOSE)
+        - $VAR_NOT_INTERPOLATED_BY_COMPOSE
         image: alpine
         imagePullPolicy: IfNotPresent
         name: web
@@ -167,6 +201,18 @@ spec:
   clusterIP: None
   selector:
     app.kubernetes.io/name: rep
+status:
+  loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shell
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: shell
 status:
   loadBalancer: {}
 
