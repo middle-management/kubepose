@@ -4,7 +4,7 @@ go 1.26.9
 
 require (
 	github.com/alexflint/go-arg v1.6.1
-	github.com/compose-spec/compose-go/v2 v2.16.1
+	github.com/compose-spec/compose-go/v2 v2.16.2
 	github.com/google/go-cmp v0.7.0
 	github.com/sirupsen/logrus v1.10.2
 	k8s.io/api v0.37.1
